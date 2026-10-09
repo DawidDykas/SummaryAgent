@@ -2,10 +2,10 @@ import asyncio
 
 from fastapi import APIRouter, File, UploadFile
 
+from backend.adapters.extractors import ACCEPT, ExtractionError, extract_text, format_of
 from backend.api.config import get_settings
 from backend.api.schemas import DocumentInfo, UploadError, UploadResponse
 from backend.api.services.chunker import split_text
-from backend.api.services.extractors import ACCEPT, ExtractionError, extract_text, format_of
 from backend.api.services.store import store
 from backend.core.exceptions import BadRequestError, DocumentNotFoundError
 

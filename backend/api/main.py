@@ -5,9 +5,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from backend.adapters.extractors import labels as format_labels
 from backend.api.config import get_settings
 from backend.api.routers import documents, ollama, summary
-from backend.api.services.extractors import FORMATS
 from backend.core.exceptions import SummaryAgentError
 
 STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
@@ -46,7 +46,7 @@ async def health() -> dict:
         "model": settings.active_model,
         "label": settings.active_label,
         "base_url": settings.active_base_url,
-        "supported_formats": sorted(set(FORMATS.values())),
+        "supported_formats": format_labels(),
     }
 
 
