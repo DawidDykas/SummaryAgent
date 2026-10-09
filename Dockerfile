@@ -1,18 +1,31 @@
-FROM python:3.13-slim
+# ---- build: instalacja do venv ----------------------------------------------
+FROM python:3.13-slim AS builder
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+ENV PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
-WORKDIR /app
+WORKDIR /build
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
 COPY pyproject.toml README.md ./
 COPY backend ./backend
+RUN pip install --no-cache-dir .
 
-RUN pip install . && \
-    addgroup --system app && adduser --system --ingroup app app
+# ---- runtime: czysty obraz, bez źródeł i pip ---------------------------------
+FROM python:3.13-slim AS runtime
 
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/opt/venv/bin:$PATH"
+
+WORKDIR /app
+
+COPY --from=builder /opt/venv /opt/venv
+
+RUN addgroup --system app && adduser --system --ingroup app app
 USER app
+
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

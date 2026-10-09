@@ -43,12 +43,19 @@ i uruchom sam backend: `docker compose up -d --build api --no-deps`
 
 ```bash
 cp .env.example .env
-uv sync                       # lub: pip install -e .
+uv sync --all-groups       # zależności + narzędzia dev (pytest, ruff)
 uv run uvicorn backend.api.main:app --reload --port 8000
 ```
 
 Ollama musi wtedy działać lokalnie (`ollama serve`) z portu `11434` —
 ustaw to w `.env` (`OLLAMA_BASE_URL`) oraz pobierz model: `ollama pull llama3.2`.
+
+### Testy i lint
+
+```bash
+uv run pytest              # testy jednostkowe + integracyjne (bez sieci/LMM)
+uv run ruff check backend tests
+```
 
 ---
 
@@ -63,6 +70,13 @@ ustaw to w `.env` (`OLLAMA_BASE_URL`) oraz pobierz model: `ollama pull llama3.2`
 | `.html`, `.htm` | HTML |
 | `.rtf` | RTF |
 
+Nowy format = jeden wpis w rejestrze (`backend/adapters/extractors`):
+
+```python
+from backend.adapters.extractors import register
+register(".odt", "ODT", my_extractor)  # extractor: Callable[[bytes], str]
+```
+
 ---
 
 ## API
@@ -75,6 +89,9 @@ ustaw to w `.env` (`OLLAMA_BASE_URL`) oraz pobierz model: `ollama pull llama3.2`
 | `GET` | `/api/summary/stream` | strumień SSE: `status` → `done` / `error` |
 | `GET` | `/api/ollama/status` | czy Ollama odpowiada i czy model jest pobrany |
 | `GET` | `/docs` | dokumentacja Swagger |
+
+Każda odpowiedź zawiera nagłówek `X-Request-ID` (propagowany z żądania lub
+generowany) — przydaje się do korelacji w logach.
 
 Przykładowe wywołanie strumienia:
 
@@ -103,31 +120,59 @@ Parametr `length` (objętość podsumowania): `short` (~120 słów), `standard` 
 | `MAX_FILE_SIZE_MB` | `25` | limit rozmiaru pliku |
 | `MAX_FILES` | `10` | limit plików na żądanie |
 | `DOC_TTL_SECONDS` | `3600` | jak długo dokumenty żyją w pamięci |
+| `LOG_LEVEL` | `INFO` | poziom logów (`DEBUG`…`CRITICAL`) |
+| `LOG_JSON` | `false` | `true` = logi w formacie JSON (produkcja) |
+
+Wszystkie wartości są **walidowane przy starcie** (pydantic) — błąd w `.env`
+zatrzymuje aplikację z czytelnym komunikatem, zamiast działać nieprzewidywalnie.
 
 ---
 
 ## Struktura projektu
 
+Architektura w stylu hexagonalnym: `core` (logika) nie importuje FastAPI,
+`adapters` (infrastruktura) realizuje porty z `core`, `api` tylko przepina.
+
 ```
 backend/
-  api/
-    main.py           # FastAPI + statyka
-    config.py         # ustawienia z .env
-    schemas.py        # modele odpowiedzi
-    routers/
-      documents.py    # upload / usuwanie plików
-      summary.py      # strumień SSE z podsumowaniem
-      ollama.py       # status Ollamy
-    services/
-      extractors.py   # PDF/DOCX/TXT/MD/HTML/RTF → tekst
-      chunker.py      # dzielenie dużych tekstów
-      llm.py          # klient API + Ollama (z ponowieniami)
-      prompts.py      # prompty (części + finalne)
-      store.py        # magazyn dokumentów w pamięci (TTL)
+  core/                  # logika domenowa - bez zależności od FastAPI
+    config.py            # Settings (.env) z walidacją
+    exceptions.py        # hierarchia błędów -> mapowana na HTTP w api/
+    logging.py           # konfiguracja structlog
+    models.py            # StoredDocument
+    chunking.py          # dzielenie dużych tekstów
+    prompts.py           # prompty (części + finalne)
+    ports/               # kontrakty (Protocol)
+      llm.py             #   LLMClient
+      store.py           #   DocumentStore
+      extractor.py       #   TextExtractor
+    services/            # orchestration (testowalne bez HTTP)
+      documents.py       #   upload: walidacja → ekstrakcja → chunking → store
+      summary.py         #   map-reduce + strumień zdarzeń status/done/error
+  adapters/              # implementacje portów
+    llm/                 # OpenAI-compat, Ollama + retry + fabryka
+    store/               # magazyn in-memory (+ fabryka pod kolejne)
+    extractors/          # rejestr formatów (PDF, DOCX, ...)
+  api/                   # warstwa transportowa (FastAPI)
+    main.py              # app + lifespan (zasoby) + exception handlery
+    dependencies.py      # wstrzykiwanie zależności (Depends)
+    middleware.py        # X-Request-ID + log żądań
+    schemas.py           # modele odpowiedzi API
+    routers/             # documents, summary (SSE), ollama
   static/
-    index.html        # UI (Tailwind + Alpine.js)
-    app.js            # logika: upload, SSE, Rendering MD
-Dockerfile
-docker-compose.yml
-.env.example
+    index.html           # UI (Tailwind + Alpine.js)
+    js/                  # moduły ES: app, api, sse, history, ui
+tests/                   # pytest: jednostkowe, integracyjne (fake LLM)
 ```
+
+### Dodawanie nowego providera LLM
+
+1. Nowy plik w `backend/adapters/llm/` z klasą realizującą `LLMClient`
+   (`chat()` + `close()`).
+2. Fabryka `backend/adapters/llm/__init__.py` wybiera implementację na podstawie
+   `Settings` — żadna zmiana w routerach ani serwisach.
+
+### Dodawanie nowego magazynu (np. Redis)
+
+1. Nowy plik w `backend/adapters/store/` realizujący `DocumentStore`.
+2. Fabryka `create_store()` w `backend/adapters/store/__init__.py`.
