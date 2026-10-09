@@ -7,18 +7,18 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 
 from backend.api.dependencies import get_llm_client, get_settings, get_store
-from backend.api.services.chunker import split_text
-from backend.api.services.prompts import (
-    chunk_prompt,
-    combine_prompt,
-    final_max_tokens,
-    final_prompt,
-)
+from backend.core.chunking import split_text
 from backend.core.config import Settings
 from backend.core.exceptions import BadRequestError, DocumentNotFoundError, LLMError
 from backend.core.models import StoredDocument
 from backend.core.ports.llm import LLMClient
 from backend.core.ports.store import DocumentStore
+from backend.core.prompts import (
+    chunk_prompt,
+    combine_prompt,
+    final_max_tokens,
+    final_prompt,
+)
 
 router = APIRouter(prefix="/api", tags=["summary"])
 

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, File, UploadFile
 from backend.adapters.extractors import ACCEPT, ExtractionError, extract_text, format_of
 from backend.api.dependencies import get_settings, get_store
 from backend.api.schemas import DocumentInfo, UploadError, UploadResponse
-from backend.api.services.chunker import split_text
+from backend.core.chunking import split_text
 from backend.core.config import Settings
 from backend.core.exceptions import BadRequestError, DocumentNotFoundError
 from backend.core.models import StoredDocument
