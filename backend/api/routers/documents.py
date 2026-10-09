@@ -1,6 +1,6 @@
 import asyncio
 
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from backend.api.config import get_settings
 from backend.api.schemas import DocumentInfo, UploadError, UploadResponse
