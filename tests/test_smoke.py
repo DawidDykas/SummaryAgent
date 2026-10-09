@@ -1,13 +1,7 @@
 """Testy smoke - podstawowe endpointy muszą działać."""
 
-from fastapi.testclient import TestClient
 
-from backend.api.main import app
-
-client = TestClient(app)
-
-
-def test_health():
+def test_health(client):
     resp = client.get("/api/health")
     assert resp.status_code == 200
     data = resp.json()
@@ -16,20 +10,20 @@ def test_health():
     assert "PDF" in data["supported_formats"]
 
 
-def test_index_serves_ui():
+def test_index_serves_ui(client):
     resp = client.get("/")
     assert resp.status_code == 200
     assert "SummaryAgent" in resp.text
 
 
-def test_ollama_status_shape():
+def test_ollama_status_shape(client):
     resp = client.get("/api/ollama/status")
     assert resp.status_code == 200
     data = resp.json()
     assert set(data) >= {"reachable", "base_url", "model", "model_ready", "models", "detail"}
 
 
-def test_upload_and_delete_txt():
+def test_upload_and_delete_txt(client):
     resp = client.post(
         "/api/documents",
         files=[("files", ("notatka.txt", b"Ala ma kota. ", "text/plain"))],
@@ -48,7 +42,7 @@ def test_upload_and_delete_txt():
     assert client.delete(f"/api/documents/{doc['id']}").status_code == 404
 
 
-def test_upload_rejects_unsupported_format():
+def test_upload_rejects_unsupported_format(client):
     resp = client.post(
         "/api/documents",
         files=[("files", ("program.exe", b"MZ", "application/octet-stream"))],
@@ -59,6 +53,6 @@ def test_upload_rejects_unsupported_format():
     assert body["errors"][0]["name"] == "program.exe"
 
 
-def test_summary_stream_requires_doc_ids():
+def test_summary_stream_requires_doc_ids(client):
     resp = client.get("/api/summary/stream", params={"doc_ids": "  ,  "})
     assert resp.status_code == 400

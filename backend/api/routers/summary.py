@@ -3,11 +3,10 @@ import json
 import time
 from typing import Any
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 
-from backend.api.config import Settings, get_settings
-from backend.api.services import llm
+from backend.api.dependencies import get_llm_client, get_settings, get_store
 from backend.api.services.chunker import split_text
 from backend.api.services.prompts import (
     chunk_prompt,
@@ -15,8 +14,11 @@ from backend.api.services.prompts import (
     final_max_tokens,
     final_prompt,
 )
-from backend.api.services.store import StoredDocument, store
-from backend.core.exceptions import BadRequestError, DocumentNotFoundError
+from backend.core.config import Settings
+from backend.core.exceptions import BadRequestError, DocumentNotFoundError, LLMError
+from backend.core.models import StoredDocument
+from backend.core.ports.llm import LLMClient
+from backend.core.ports.store import DocumentStore
 
 router = APIRouter(prefix="/api", tags=["summary"])
 
@@ -49,6 +51,7 @@ async def _analyze_chunks(
     *,
     name: str,
     settings: Settings,
+    client: LLMClient,
     queue: asyncio.Queue,
 ) -> tuple[dict[int, str], list[Exception]]:
     """Analizuje części równolegle (limit = settings.summary_concurrency).
@@ -69,10 +72,9 @@ async def _analyze_chunks(
                 "thinking", f"Analiza części {index}/{total}...", progress=completed, total=total,
             )))
             try:
-                part = await llm.chat(
+                part = await client.chat(
                     chunk_prompt(name, index, total, chunk),
                     max_tokens=1200,
-                    settings=settings,
                 )
             except Exception as exc:  # błąd jednej części nie zrywa strumienia
                 errors.append(exc)
@@ -96,8 +98,14 @@ async def _analyze_chunks(
     return results, errors
 
 
-async def _event_stream(docs: list[StoredDocument], lang: str, length: str):
-    settings = get_settings()
+async def _event_stream(
+    docs: list[StoredDocument],
+    lang: str,
+    length: str,
+    *,
+    settings: Settings,
+    client: LLMClient,
+):
     started = time.perf_counter()
 
     try:
@@ -119,7 +127,7 @@ async def _event_stream(docs: list[StoredDocument], lang: str, length: str):
             yield _sse("status", _status("chunk", f"Duży dokument - dzielenie na {total} części...", total=total))
             queue: asyncio.Queue = asyncio.Queue()
             task = asyncio.create_task(_analyze_chunks(
-                chunks, name=name, settings=settings, queue=queue,
+                chunks, name=name, settings=settings, client=client, queue=queue,
             ))
             while True:
                 event, data = await queue.get()
@@ -139,7 +147,7 @@ async def _event_stream(docs: list[StoredDocument], lang: str, length: str):
             yield _sse("status", _status("thinking", "Model analizuje dokument...", progress=1, total=1))
             messages = final_prompt(name, text, lang=lang, length=length, multi=multi)
 
-        summary = await llm.chat(messages, max_tokens=final_max_tokens(length), settings=settings)
+        summary = await client.chat(messages, max_tokens=final_max_tokens(length))
 
         yield _sse(
             "done",
@@ -158,7 +166,7 @@ async def _event_stream(docs: list[StoredDocument], lang: str, length: str):
                 "files": [d.name for d in docs],
             },
         )
-    except llm.LLMError as exc:
+    except LLMError as exc:
         yield _sse("error", {"message": str(exc)})
     except Exception as exc:
         yield _sse("error", {"message": f"Nieoczekiwany błąd: {exc}"})
@@ -169,11 +177,13 @@ async def summary_stream(
     doc_ids: str = Query(..., description="Lista id dokumentów po przecinku"),
     lang: str = Query("pl", pattern="^(pl|en)$"),
     length: str = Query("standard", pattern=LENGTH_PATTERN),
+    settings: Settings = Depends(get_settings),
+    store: DocumentStore = Depends(get_store),
+    client: LLMClient = Depends(get_llm_client),
 ):
     ids = [i.strip() for i in doc_ids.split(",") if i.strip()]
     if not ids:
         raise BadRequestError("Nie wybrano żadnych dokumentów.")
-    settings = get_settings()
     if len(ids) > settings.max_files:
         raise BadRequestError("Za dużo dokumentów w żądaniu.")
 
@@ -188,7 +198,7 @@ async def summary_stream(
     if missing:
         raise DocumentNotFoundError(missing)
     return StreamingResponse(
-        _event_stream(docs, lang, length),
+        _event_stream(docs, lang, length, settings=settings, client=client),
         media_type="text/event-stream",
         headers=SSE_HEADERS,
     )

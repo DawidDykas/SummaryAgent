@@ -1,18 +1,20 @@
 import asyncio
 
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, Depends, File, UploadFile
 
 from backend.adapters.extractors import ACCEPT, ExtractionError, extract_text, format_of
-from backend.api.config import get_settings
+from backend.api.dependencies import get_settings, get_store
 from backend.api.schemas import DocumentInfo, UploadError, UploadResponse
 from backend.api.services.chunker import split_text
-from backend.api.services.store import store
+from backend.core.config import Settings
 from backend.core.exceptions import BadRequestError, DocumentNotFoundError
+from backend.core.models import StoredDocument
+from backend.core.ports.store import DocumentStore
 
 router = APIRouter(prefix="/api", tags=["documents"])
 
 
-def _info(doc) -> DocumentInfo:
+def _info(doc: StoredDocument) -> DocumentInfo:
     return DocumentInfo(
         id=doc.id,
         name=doc.name,
@@ -25,8 +27,11 @@ def _info(doc) -> DocumentInfo:
 
 
 @router.post("/documents", response_model=UploadResponse)
-async def upload_documents(files: list[UploadFile] = File(...)) -> UploadResponse:
-    settings = get_settings()
+async def upload_documents(
+    files: list[UploadFile] = File(...),
+    settings: Settings = Depends(get_settings),
+    store: DocumentStore = Depends(get_store),
+) -> UploadResponse:
     if not files:
         raise BadRequestError("Nie przesłano żadnych plików.")
     if len(files) > settings.max_files:
@@ -38,16 +43,13 @@ async def upload_documents(files: list[UploadFile] = File(...)) -> UploadRespons
     for upload in files:
         name = (upload.filename or "bez_nazwy").strip() or "bez_nazwy"
         if format_of(name) is None:
-            response.errors.append(
-                UploadError(name=name, error="Nieobsługiwany format pliku.")
-            )
+            response.errors.append(UploadError(name=name, error="Nieobsługiwany format pliku."))
             continue
         data = await upload.read(limit + 1)
         if len(data) > limit:
             response.errors.append(
                 UploadError(
-                    name=name,
-                    error=f"Plik przekracza limit {settings.max_file_size_mb} MB.",
+                    name=name, error=f"Plik przekracza limit {settings.max_file_size_mb} MB."
                 )
             )
             continue
@@ -60,9 +62,7 @@ async def upload_documents(files: list[UploadFile] = File(...)) -> UploadRespons
             response.errors.append(UploadError(name=name, error=str(exc)))
             continue
         except Exception:
-            response.errors.append(
-                UploadError(name=name, error="Nie udało się odczytać pliku.")
-            )
+            response.errors.append(UploadError(name=name, error="Nie udało się odczytać pliku."))
             continue
 
         chunks = split_text(text, settings.chunk_size, settings.chunk_overlap)
@@ -75,7 +75,10 @@ async def upload_documents(files: list[UploadFile] = File(...)) -> UploadRespons
 
 
 @router.delete("/documents/{doc_id}")
-async def delete_document(doc_id: str) -> dict:
+async def delete_document(
+    doc_id: str,
+    store: DocumentStore = Depends(get_store),
+) -> dict:
     if not store.delete(doc_id):
         raise DocumentNotFoundError(doc_id, message="Dokument nie istnieje.")
     return {"deleted": doc_id}

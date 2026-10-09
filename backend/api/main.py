@@ -1,21 +1,41 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.adapters.extractors import labels as format_labels
-from backend.api.config import get_settings
+from backend.adapters.llm import create_llm_client
+from backend.adapters.store import create_store
+from backend.api.dependencies import get_settings
 from backend.api.routers import documents, ollama, summary
+from backend.core.config import Settings
 from backend.core.exceptions import SummaryAgentError
 
 STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Tworzy zasoby aplikacji (magazyn, klient LLM) i zamyka je przy wyjściu."""
+    settings = get_settings()
+    app.state.settings = settings
+    app.state.store = create_store(settings)
+    app.state.llm_client = create_llm_client(settings)
+    try:
+        yield
+    finally:
+        await app.state.llm_client.close()
+
 
 app = FastAPI(
     title="SummaryAgent",
     description="Wgraj pliki i otrzymaj ich podsumowanie od modelu LLM.",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -38,8 +58,7 @@ app.include_router(ollama.router)
 
 
 @app.get("/api/health")
-async def health() -> dict:
-    settings = get_settings()
+async def health(settings: Settings = Depends(get_settings)) -> dict:
     return {
         "status": "ok",
         "provider": settings.provider,
