@@ -3,7 +3,7 @@
 import { deleteDocument, fetchHealth, fetchOllamaStatus, fetchSummaryStream, uploadDocuments } from './api.js';
 import { clearStoredHistory, loadStoredHistory, saveStoredHistory } from './history.js';
 import { sseEvents } from './sse.js';
-import { badgeClass, firstLine, fmtNum, partsWord, scrollToPanel } from './ui.js';
+import { badgeClass, firstLine, fmtNum, partsWord, scrollToPanel, shortFmt } from './ui.js';
 
 export function summaryApp() {
   return {
