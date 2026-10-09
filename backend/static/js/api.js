@@ -17,11 +17,18 @@ export async function uploadDocuments(files) {
   try {
     resp = await fetch('/api/documents', { method: 'POST', body: form });
   } catch (err) {
-    throw new Error(`Nie udało się połączyć z serwerem: ${err.message}`);
+    const e = new Error(err.message);
+    e.i18nKey = 'err.serverConn';
+    e.i18nParams = { msg: err.message };
+    throw e;
   }
   const data = await resp.json().catch(() => null);
   if (!resp.ok || !data) {
-    throw new Error(data?.detail || `Błąd wysyłania plików (HTTP ${resp.status}).`);
+    if (data?.detail) throw new Error(data.detail);
+    const e = new Error(`HTTP ${resp.status}`);
+    e.i18nKey = 'err.uploadHttp';
+    e.i18nParams = { status: resp.status };
+    throw e;
   }
   return data;
 }

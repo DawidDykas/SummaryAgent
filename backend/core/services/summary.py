@@ -28,6 +28,34 @@ Event = tuple[str, dict[str, Any]]
 
 _SENTINEL = object()
 
+_MESSAGES: dict[str, dict[str, str]] = {
+    "pl": {
+        "prepare": "Łączenie {n} dokumentów...",
+        "chunk": "Duży dokument - dzielenie na {total} części...",
+        "synthesize": "Zbieranie wniosków w całość...",
+        "thinking": "Model analizuje dokument...",
+        "analyze_start": "Analiza części {index}/{total}...",
+        "analyze_done": "Ukończono część {index}/{total} ({completed}/{total})",
+        "unexpected": "Nieoczekiwany błąd: {error}",
+    },
+    "en": {
+        "prepare": "Combining {n} documents...",
+        "chunk": "Large document - splitting into {total} parts...",
+        "synthesize": "Putting the conclusions together...",
+        "thinking": "The model is analyzing the document...",
+        "analyze_start": "Analyzing part {index}/{total}...",
+        "analyze_done": "Completed part {index}/{total} ({completed}/{total})",
+        "unexpected": "Unexpected error: {error}",
+    },
+}
+
+
+def _msg(lang: str, key: str, **vars: object) -> str:
+    """Komunikat statusu w wybranym języku (fallback: pl)."""
+    table = _MESSAGES.get(lang) or _MESSAGES["pl"]
+    template = table.get(key) or _MESSAGES["pl"][key]
+    return template.format(**vars)
+
 
 def _status(
     step: str, message: str, *, progress: int | None = None, total: int | None = None
@@ -72,7 +100,7 @@ class SummaryService:
         """Generuje zdarzenia: status* -> done | error."""
         started = time.perf_counter()
         try:
-            yield "status", _status("prepare", f"Łączenie {len(docs)} dokumentów...")
+            yield "status", _status("prepare", _msg(lang, "prepare", n=len(docs)))
 
             sections = [f"== Plik: {d.name} ==\n{d.text}" for d in docs]
             text = "\n\n\n".join(sections).strip()
@@ -88,10 +116,10 @@ class SummaryService:
 
             if total > 1:
                 yield "status", _status(
-                    "chunk", f"Duży dokument - dzielenie na {total} części...", total=total
+                    "chunk", _msg(lang, "chunk", total=total), total=total
                 )
                 queue: asyncio.Queue = asyncio.Queue()
-                task = asyncio.create_task(self._analyze_chunks(chunks, name, queue))
+                task = asyncio.create_task(self._analyze_chunks(chunks, name, queue, lang))
                 while True:  # przekaż statusy części do momentu zakończenia
                     item = await queue.get()
                     if item is _SENTINEL:
@@ -103,14 +131,14 @@ class SummaryService:
 
                 yield "status", _status(
                     "synthesize",
-                    "Zbieranie wniosków w całość...",
+                    _msg(lang, "synthesize"),
                     progress=total,
                     total=total,
                 )
                 messages = combine_prompt(name, partials, lang=lang, length=length)
             else:
                 yield "status", _status(
-                    "thinking", "Model analizuje dokument...", progress=1, total=1
+                    "thinking", _msg(lang, "thinking"), progress=1, total=1
                 )
                 messages = final_prompt(name, text, lang=lang, length=length, multi=multi)
 
@@ -133,13 +161,14 @@ class SummaryService:
         except LLMError as exc:
             yield "error", {"message": str(exc)}
         except Exception as exc:
-            yield "error", {"message": f"Nieoczekiwany błąd: {exc}"}
+            yield "error", {"message": _msg(lang, "unexpected", error=exc)}
 
     async def _analyze_chunks(
         self,
         chunks: list[str],
         name: str,
         queue: asyncio.Queue,
+        lang: str,
     ) -> tuple[list[str], list[Exception]]:
         """Analizuje części równolegle (limit = settings.summary_concurrency).
 
@@ -161,7 +190,7 @@ class SummaryService:
                         "status",
                         _status(
                             "thinking",
-                            f"Analiza części {index}/{total}...",
+                            _msg(lang, "analyze_start", index=index, total=total),
                             progress=completed,
                             total=total,
                         ),
@@ -182,7 +211,13 @@ class SummaryService:
                         "status",
                         _status(
                             "thinking",
-                            f"Ukończono część {index}/{total} ({completed}/{total})",
+                            _msg(
+                                lang,
+                                "analyze_done",
+                                index=index,
+                                total=total,
+                                completed=completed,
+                            ),
                             progress=completed,
                             total=total,
                         ),

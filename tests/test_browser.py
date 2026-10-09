@@ -142,6 +142,29 @@ async def _browser_test(base: str) -> dict:
             }"""
         )
 
+        # 3) wybór języka z flagą w headerze (dropdown) + sync z selectem z lewej
+        await page.locator("#lang-switcher").click()
+        await page.wait_for_timeout(300)
+        await page.get_by_role("button", name="English").click()
+        await page.wait_for_timeout(400)
+
+        after_lang = await page.evaluate(
+            """() => {
+                const d = document.querySelector('[x-data]')._x_dataStack[0];
+                const sel = document.querySelector('select[x-model="lang"]');
+                const body = document.body.innerText;
+                const nav = document.querySelector('a[href="#dropzone"]');
+                return {lang: d.lang, flag: d.langFlag, open: d.langOpen,
+                        select: sel ? sel.value : null,
+                        title: document.title, htmlLang: document.documentElement.lang,
+                        navText: nav ? nav.textContent.trim() : null,
+                        dropTranslated: body.includes('Drop files here') && !body.includes('Przeciągnij pliki tutaj'),
+                        // etykiety mają CSS uppercase -> porównujemy bez wielkości liter
+                        settingsLabel: body.toLowerCase().includes('language') && !body.toLowerCase().includes('język'),
+                        resultTitle: d.t('result.title')};
+            }"""
+        )
+
         btn = page.locator("button", has_text="Summary").first
         btn_visible = await btn.is_visible()
         btn_enabled = await btn.is_enabled() if btn_visible else False
@@ -153,6 +176,7 @@ async def _browser_test(base: str) -> dict:
         "state": state,
         "after_click": after_click,
         "after_drop": after_drop,
+        "after_lang": after_lang,
         "button": {"visible": btn_visible, "enabled": btn_enabled},
         "page_errors": page_errors,
         "console_errors": console_errors,
@@ -177,5 +201,16 @@ def test_ui_mounts_without_js_errors(live_server):
 
     dnd = report["after_drop"]
     assert dnd["docs"] == 2 and "e2e_dnd.txt" in dnd["names"], dnd
+
+    lang = report["after_lang"]
+    assert lang["lang"] == "en" and lang["flag"] == "🇬🇧", lang
+    assert lang["open"] is False, f"dropdown nie zamknął się: {lang}"
+    assert lang["select"] == "en", f"select z lewej nie zsynchronizowany: {lang}"
+    # tłumaczenie interfejsu po wybraniu języka
+    assert lang["htmlLang"] == "en" and "AI document summaries" in lang["title"], lang
+    assert lang["navText"] == "Upload files", lang
+    assert lang["dropTranslated"], f"dropzone nietłumaczony: {lang}"
+    assert lang["settingsLabel"], f"etykiety ustawień nietłumaczone: {lang}"
+    assert lang["resultTitle"] == "Summary", lang
 
     assert report["button"]["visible"] and report["button"]["enabled"]

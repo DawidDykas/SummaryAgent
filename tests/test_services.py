@@ -244,6 +244,24 @@ async def test_events_multiple_documents_are_combined():
     assert done["stats"]["length"] == "xl"
 
 
+async def test_status_messages_follow_lang():
+    """Komunikaty strumienia muszą być w języku wybranym w zapytaniu."""
+    client = FakeLLM(reply="WYNIK")
+    service_pl, docs = make_summary_service(client=client, texts=("treść A",))
+    msgs_pl = [
+        d["message"] for e, d in [x async for x in service_pl.events(docs, "pl", "standard")] if e == "status"
+    ]
+    assert any("Łączenie" in m for m in msgs_pl)
+
+    client_en = FakeLLM(reply="WYNIK")
+    service_en, docs_en = make_summary_service(client=client_en, texts=("treść A",))
+    msgs_en = [
+        d["message"] for e, d in [x async for x in service_en.events(docs_en, "en", "standard")] if e == "status"
+    ]
+    assert any("Combining" in m for m in msgs_en)
+    assert not any("Łączenie" in m for m in msgs_en)
+
+
 def test_extraction_error_is_raised_by_register():
     service = make_document_service()
     with pytest.raises(ExtractionError):

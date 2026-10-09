@@ -2,6 +2,7 @@
 
 import { deleteDocument, fetchHealth, fetchOllamaStatus, fetchSummaryStream, uploadDocuments } from './api.js';
 import { clearStoredHistory, loadStoredHistory, saveStoredHistory } from './history.js';
+import { tr } from './i18n.js';
 import { sseEvents } from './sse.js';
 import { badgeClass, firstLine, fmtNum, partsWord, scrollToPanel, shortFmt } from './ui.js';
 
@@ -14,6 +15,11 @@ export function summaryApp() {
     busy: false,
     dragging: false,
     lang: 'pl',
+    langOpen: false,
+    langs: [
+      { code: 'pl', name: 'Polski', flag: '🇵🇱' },
+      { code: 'en', name: 'English', flag: '🇬🇧' },
+    ],
     length: 'standard',
     // --- przebieg generowania ---
     stage: '',
@@ -47,7 +53,7 @@ export function summaryApp() {
         try {
           const status = await fetchOllamaStatus();
           if (status && (!status.reachable || status.model_ready === false)) {
-            this.ollamaWarning = status.detail || 'Ollama jest niedostępna.';
+            this.ollamaWarning = status.detail || this.t('err.ollama');
           }
         } catch (_) {
           /* ignore */
@@ -66,7 +72,27 @@ export function summaryApp() {
     },
 
     get providerLabel() {
-      return this.health?.label || 'model LLM';
+      return this.health?.label || this.t('provider.fallback');
+    },
+
+    get howSteps() {
+      return [
+        { n: '1', t: this.t('how.1.t'), d: this.t('how.1.d') },
+        { n: '2', t: this.t('how.2.t'), d: this.t('how.2.d') },
+        { n: '3', t: this.t('how.3.t'), d: this.t('how.3.d') },
+      ];
+    },
+
+    get _currentLang() {
+      return this.langs.find((l) => l.code === this.lang) || this.langs[0];
+    },
+
+    get langFlag() {
+      return this._currentLang.flag;
+    },
+
+    get langName() {
+      return this._currentLang.name;
     },
 
     get totalChars() {
@@ -82,8 +108,8 @@ export function summaryApp() {
       const s = this.stats;
       return [
         s.model,
-        `${s.chunks} ${partsWord(s.chunks)}`,
-        `${fmtNum(s.chars)} znaków`,
+        `${s.chunks} ${partsWord(s.chunks, this.lang)}`,
+        `${fmtNum(s.chars, this.lang)} ${this.t('stats.chars')}`,
         `${s.duration_s}s`,
       ].join(' · ');
     },
@@ -93,6 +119,17 @@ export function summaryApp() {
     fmtNum,
     badgeClass,
     shortFmt,
+
+    t(key, vars) {
+      return tr(this.lang, key, vars);
+    },
+
+    syncDocLang(code) {
+      const lang = code === 'en' ? 'en' : 'pl';
+      document.title = this.t('meta.title');
+      document.documentElement.lang = lang;
+      document.querySelector('meta[name="description"]')?.setAttribute('content', this.t('meta.description'));
+    },
 
     // ---------- pliki ----------
     onPick(e) {
@@ -113,7 +150,7 @@ export function summaryApp() {
 
     async upload(files) {
       if (this.docs.length + files.length > this.maxFiles) {
-        this.showError(`Maksymalnie ${this.maxFiles} plików naraz.`);
+        this.showError(this.t('err.maxFiles', { n: this.maxFiles }));
         return;
       }
       try {
@@ -154,10 +191,10 @@ export function summaryApp() {
       } else {
         this.progress = null;
       }
-      if (data.step === 'prepare') this._step('prepare', 'Łączenie dokumentów');
-      else if (data.step === 'chunk') this._step('chunk', data.message || 'Dzielenie na części');
-      else if (data.step === 'thinking') this._step('thinking', data.message || 'Analiza modelu');
-      else if (data.step === 'synthesize') this._step('synthesize', data.message || 'Scalanie wyniku');
+      if (data.step === 'prepare') this._step('prepare', data.message || this.t('step.prepare'));
+      else if (data.step === 'chunk') this._step('chunk', data.message || this.t('step.chunk'));
+      else if (data.step === 'thinking') this._step('thinking', data.message || this.t('step.thinking'));
+      else if (data.step === 'synthesize') this._step('synthesize', data.message || this.t('step.synthesize'));
     },
 
     // ---------- generowanie ----------
@@ -169,8 +206,8 @@ export function summaryApp() {
       this.statsFiles = [];
       this.steps = [];
       this.progress = null;
-      this.stage = 'Przygotowuję zapytanie...';
-      this._step('prepare', 'Łączenie dokumentów');
+      this.stage = this.t('stage.preparing');
+      this._step('prepare', this.t('step.prepare'));
       scrollToPanel('#thinking-panel');
 
       const ids = this.docs.map((d) => d.id).join(',');
@@ -192,13 +229,13 @@ export function summaryApp() {
             break;
           } else if (event === 'error') {
             finished = true;
-            this.showError(data.message || 'Model zwrócił błąd.');
+            this.showError(data.message || this.t('err.model'));
             break;
           }
         }
-        if (!finished) this.showError('Strumień zakończony bez wyniku — sprawdź logi serwera.');
+        if (!finished) this.showError(this.t('err.stream'));
       } catch (err) {
-        this.showError(err.message || 'Połączenie przerwane.');
+        this.showError(err);
       } finally {
         this.busy = false;
         this.stage = '';
@@ -213,7 +250,7 @@ export function summaryApp() {
         this.copied = true;
         setTimeout(() => (this.copied = false), 1800);
       } catch (_) {
-        this.showError('Przeglądarka zablokowała kopiowanie do schowka.');
+        this.showError(this.t('err.clipboard'));
       }
     },
 
@@ -221,11 +258,11 @@ export function summaryApp() {
       const name =
         this.statsFiles.length === 1
           ? this.statsFiles[0].replace(/\.[^.]+$/, '')
-          : 'podsumowanie';
+          : this.t('file.summary');
       const blob = new Blob([this.summary], { type: 'text/markdown;charset=utf-8' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `${name || 'podsumowanie'}-streszczenie.md`;
+      a.download = `${name || this.t('file.summary')}${this.t('file.suffix')}.md`;
       a.click();
       URL.revokeObjectURL(a.href);
     },
@@ -262,7 +299,10 @@ export function summaryApp() {
       if (!this.summary || !this.stats) return;
       const item = {
         id: Date.now(),
-        date: new Date().toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' }),
+        date: new Date().toLocaleString(this.lang === 'en' ? 'en-US' : 'pl-PL', {
+          dateStyle: 'short',
+          timeStyle: 'short',
+        }),
         summary: this.summary.slice(0, 20000),
         stats: this.stats,
         files: this.statsFiles,
@@ -270,7 +310,11 @@ export function summaryApp() {
       this.history = saveStoredHistory(item);
     },
 
-    showError(msg) {
+    showError(err) {
+      const msg =
+        err && typeof err === 'object' && err.i18nKey
+          ? this.t(err.i18nKey, err.i18nParams)
+          : String(err?.message ?? err);
       this.toast = msg;
       clearTimeout(this._toastTimer);
       this._toastTimer = setTimeout(() => (this.toast = ''), 8000);

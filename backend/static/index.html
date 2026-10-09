@@ -98,7 +98,7 @@ tailwind.config = {
 </head>
 
 <body class="min-h-screen font-sans text-slate-200 antialiased selection:bg-fuchsia-500/30"
-      x-data="summaryApp()" x-init="init()"
+      x-data="summaryApp()" x-init="init()" x-effect="syncDocLang(lang)"
       @keydown.window.ctrl.enter.prevent="generate()"
       @keydown.window.meta.enter.prevent="generate()"
       @dragover.prevent="dragging = true"
@@ -123,18 +123,41 @@ tailwind.config = {
         </span>
         <div class="leading-tight">
           <div class="text-[15px] font-extrabold tracking-tight text-white">Summary<span class="grad-text">Agent</span></div>
-          <div class="hidden text-[11px] text-slate-500 sm:block">dokumenty → podsumowanie AI</div>
+          <div class="hidden text-[11px] text-slate-500 sm:block" x-text="t('tagline')"></div>
         </div>
       </div>
 
       <div class="flex items-center gap-2.5">
+        <!-- wybór języka (podsumowania) z flagą -->
+        <div class="relative" @click.outside="langOpen = false" @keydown.escape.window="langOpen = false">
+          <button type="button" id="lang-switcher" @click="langOpen = !langOpen" :disabled="busy"
+                  :title="t('lang.title', {name: langName})"
+                  class="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-2 text-xs font-semibold text-slate-200 transition hover:border-white/20 hover:bg-white/10 disabled:opacity-50">
+            <span class="text-base leading-none" x-text="langFlag"></span>
+            <span class="hidden sm:inline" x-text="langName"></span>
+            <svg class="h-3 w-3 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+          </button>
+          <div x-show="langOpen" x-cloak x-transition.opacity.duration.150ms
+               class="absolute right-0 top-full z-50 mt-2 w-40 overflow-hidden rounded-xl border border-white/10 bg-[#0b1020] py-1 shadow-xl shadow-black/50">
+            <template x-for="l in langs" :key="l.code">
+              <button type="button" @click="lang = l.code; langOpen = false"
+                      class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold transition hover:bg-white/5"
+                      :class="lang === l.code ? 'text-white' : 'text-slate-400'">
+                <span class="text-base leading-none" x-text="l.flag"></span>
+                <span x-text="l.name"></span>
+                <svg x-show="lang === l.code" class="ml-auto h-3.5 w-3.5 text-fuchsia-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+              </button>
+            </template>
+          </div>
+        </div>
+
         <span x-show="health" x-cloak
               class="hidden items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-300 sm:inline-flex"
               :title="health?.base_url">
           <span class="h-2 w-2 rounded-full animate-pulse" :class="health?.provider === 'ollama' ? 'bg-emerald-400' : 'bg-sky-400'"></span>
           <span x-text="health?.label || '...'"></span>
         </span>
-        <a href="#dropzone" class="rounded-lg grad-btn px-3.5 py-2 text-xs font-semibold text-white transition">Wgraj pliki</a>
+        <a href="#dropzone" class="rounded-lg grad-btn px-3.5 py-2 text-xs font-semibold text-white transition" x-text="t('nav.upload')"></a>
       </div>
     </div>
   </header>
@@ -147,9 +170,8 @@ tailwind.config = {
         <span class="h-1.5 w-1.5 rounded-full bg-fuchsia-400"></span>
         PDF · DOCX · TXT · MD · HTML · RTF
       </div>
-      <h1 class="mx-auto max-w-3xl text-3xl font-black leading-[1.08] tracking-tight text-white sm:text-[3.1rem] sm:leading-[1.05]">
-        Wrzuć pliki. Kliknij <span class="grad-text">Summary</span>.<br class="hidden sm:block"> Odbierz gotowe streszczenie.
-      </h1>
+      <h1 class="mx-auto max-w-3xl text-3xl font-black leading-[1.08] tracking-tight text-white sm:text-[3.1rem] sm:leading-[1.05]"
+          x-html="t('hero.title')"></h1>
     </section>
 
     <!-- ==== OSTRZEŻENIE ==== -->
@@ -170,10 +192,11 @@ tailwind.config = {
             <div class="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-indigo-500/25 to-fuchsia-500/25 ring-1 ring-white/10">
               <svg class="h-6 w-6 text-indigo-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v13"/></svg>
             </div>
-            <p class="text-sm font-semibold text-white">Przeciągnij pliki tutaj</p>
+            <p class="text-sm font-semibold text-white" x-text="t('drop.title')"></p>
             <p class="mt-1 text-xs text-slate-400">
-              lub <span class="grad-text font-bold underline decoration-fuchsia-400/60 underline-offset-4">wybierz z dysku</span>
-              · max <span x-text="maxFileMb"></span> MB / plik · do <span x-text="maxFiles"></span> plików
+              <span x-text="t('drop.or')"></span>
+              <span class="grad-text font-bold underline decoration-fuchsia-400/60 underline-offset-4" x-text="t('drop.choose')"></span>
+              · <span x-text="t('drop.max', {mb: maxFileMb, n: maxFiles})"></span>
             </p>
             <input type="file" x-ref="fileInput" multiple class="hidden" @click.stop
                    accept=".pdf,.docx,.txt,.md,.markdown,.html,.htm,.rtf"
@@ -183,8 +206,8 @@ tailwind.config = {
           <!-- lista plików -->
           <div x-show="docs.length || errors.length" class="mt-4 space-y-2">
             <div class="flex items-center justify-between px-1">
-              <span class="text-[11px] font-bold uppercase tracking-widest text-slate-500">Pliki (<span x-text="docs.length"></span>)</span>
-              <button x-show="docs.length" @click="reset()" class="text-[11px] font-semibold text-slate-500 transition hover:text-fuchsia-300">wyczyść wszystko</button>
+              <span class="text-[11px] font-bold uppercase tracking-widest text-slate-500"><span x-text="t('files.label')"></span> (<span x-text="docs.length"></span>)</span>
+              <button x-show="docs.length" @click="reset()" class="text-[11px] font-semibold text-slate-500 transition hover:text-fuchsia-300" x-text="t('files.clearAll')"></button>
             </div>
 
             <template x-for="doc in docs" :key="doc.id">
@@ -195,17 +218,17 @@ tailwind.config = {
                   <div class="min-w-0 flex-1">
                     <div class="truncate text-[13px] font-semibold text-white" x-text="doc.name" :title="doc.name"></div>
                     <div class="text-[11px] text-slate-500">
-                      <span x-text="fmtNum(doc.chars)"></span> zn. ·
-                      <span x-text="fmtNum(doc.words)"></span> sł. ·
-                      <span class="text-indigo-300" x-text="doc.chunks === 1 ? '1 część' : doc.chunks + ' części'"></span>
-                      <span x-show="doc.chunks > 1" class="ml-1 rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">podzielony</span>
+                      <span x-text="fmtNum(doc.chars, lang)"></span> <span x-text="t('doc.chars')"></span> ·
+                      <span x-text="fmtNum(doc.words, lang)"></span> <span x-text="t('doc.words')"></span> ·
+                      <span class="text-indigo-300" x-text="(doc.chunks === 1 ? '1' : doc.chunks) + ' ' + partsWord(doc.chunks, lang)"></span>
+                      <span x-show="doc.chunks > 1" class="ml-1 rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-300" x-text="t('doc.split')"></span>
                     </div>
                   </div>
-                  <button @click="expanded = expanded === doc.id ? null : doc.id" title="Podgląd"
+                  <button @click="expanded = expanded === doc.id ? null : doc.id" :title="t('a11y.preview')"
                           class="grid h-7 w-7 place-items-center rounded-md text-slate-500 transition hover:bg-white/10 hover:text-slate-300">
                     <svg class="h-4 w-4 transition-transform" :class="expanded === doc.id && 'rotate-180'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
                   </button>
-                  <button @click="removeDoc(doc.id)" title="Usuń"
+                  <button @click="removeDoc(doc.id)" :title="t('a11y.remove')"
                           class="grid h-7 w-7 place-items-center rounded-md text-slate-500 transition hover:bg-red-500/15 hover:text-red-400">
                     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
                   </button>
@@ -229,7 +252,7 @@ tailwind.config = {
         <div class="card card-hover animate-popin rounded-3xl p-5" x-show="docs.length" x-cloak>
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label class="block">
-              <span class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-500">Język</span>
+              <span class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-500" x-text="t('settings.lang')"></span>
               <select x-model="lang" :disabled="busy"
                       class="w-full rounded-xl border border-white/10 bg-slate-900/80 px-3 py-2.5 text-sm text-white outline-none transition focus:border-fuchsia-400/60 disabled:opacity-50">
                 <option value="pl">Polski</option>
@@ -237,22 +260,22 @@ tailwind.config = {
               </select>
             </label>
             <label class="block">
-              <span class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-500">Objętość</span>
+              <span class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-500" x-text="t('settings.length')"></span>
               <select x-model="length" :disabled="busy"
                       class="w-full rounded-xl border border-white/10 bg-slate-900/80 px-3 py-2.5 text-sm text-white outline-none transition focus:border-fuchsia-400/60 disabled:opacity-50">
-                <option value="short">Zwięzłe (~120 słów)</option>
-                <option value="standard">Standard (~300 słów)</option>
-                <option value="long">Szczegółowe (~600 słów)</option>
-                <option value="xl">Obszerne (~1200 słów)</option>
+                <option value="short" x-text="t('length.short')"></option>
+                <option value="standard" x-text="t('length.standard')"></option>
+                <option value="long" x-text="t('length.long')"></option>
+                <option value="xl" x-text="t('length.xl')"></option>
               </select>
             </label>
           </div>
 
           <div class="mt-4 flex items-center justify-between text-[11px] text-slate-500">
             <span>
-              <strong class="text-slate-300" x-text="docs.length"></strong> plik(ów) ·
-              <strong class="text-slate-300" x-text="fmtNum(totalChars)"></strong> znaków ·
-              <strong class="text-indigo-300" x-text="totalChunks + ' ' + partsWord(totalChunks)"></strong>
+              <strong class="text-slate-300" x-text="t('stats.files', {n: docs.length})"></strong> ·
+              <strong class="text-slate-300" x-text="fmtNum(totalChars, lang) + ' ' + t('stats.chars')"></strong> ·
+              <strong class="text-indigo-300" x-text="totalChunks + ' ' + partsWord(totalChunks, lang)"></strong>
             </span>
             <span class="hidden items-center gap-1.5 sm:flex">
               <span class="kbd">Ctrl</span><span class="text-slate-600">+</span><span class="kbd">Enter</span>
@@ -263,15 +286,15 @@ tailwind.config = {
                   class="grad-btn mt-3 flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-fuchsia-600/20 transition">
             <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!busy"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3z"/></svg>
             <svg class="h-[18px] w-[18px] animate-spin-slow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" x-show="busy" x-cloak><path d="M21 12a9 9 0 1 1-6.2-8.56" stroke-linecap="round"/></svg>
-            <span x-text="busy ? 'Generowanie…' : 'Summary'"></span>
+            <span x-text="busy ? t('cta.generating') : 'Summary'"></span>
           </button>
         </div>
 
         <!-- HISTORIA -->
         <div x-show="history.length" x-cloak class="card animate-popin rounded-3xl p-5">
           <div class="mb-3 flex items-center justify-between px-1">
-            <span class="text-[11px] font-bold uppercase tracking-widest text-slate-500">Ostatnie podsumowania</span>
-            <button @click="clearHistory()" class="text-[11px] font-semibold text-slate-500 transition hover:text-red-300">wyczyść</button>
+            <span class="text-[11px] font-bold uppercase tracking-widest text-slate-500" x-text="t('history.title')"></span>
+            <button @click="clearHistory()" class="text-[11px] font-semibold text-slate-500 transition hover:text-red-300" x-text="t('history.clear')"></button>
           </div>
           <div class="space-y-2">
             <template x-for="h in history" :key="h.id">
@@ -281,8 +304,8 @@ tailwind.config = {
                   <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 8v4l2.5 2.5"/><circle cx="12" cy="12" r="9"/></svg>
                 </span>
                 <span class="min-w-0 flex-1">
-                  <span class="block truncate text-xs font-semibold text-slate-200" x-text="firstLine(h.summary)"></span>
-                  <span class="block text-[10px] text-slate-500" x-text="h.date + ' · ' + h.files.length + ' plik(ów) · ' + h.stats.model"></span>
+                  <span class="block truncate text-xs font-semibold text-slate-200" x-text="firstLine(h.summary, lang)"></span>
+                  <span class="block text-[10px] text-slate-500" x-text="t('history.meta', {date: h.date, n: h.files.length, model: h.stats.model})"></span>
                 </span>
               </button>
             </template>
@@ -307,15 +330,11 @@ tailwind.config = {
               </div>
             </div>
 
-            <h2 class="mt-6 text-xl font-extrabold text-white">Gotowy do streszczenia</h2>
-            <p class="mt-2 text-sm leading-relaxed text-slate-400" x-text="docs.length ? 'Wgrane pliki czekają po lewej stronie — kliknij Summary, aby uruchomić model.' : 'Wgraj dokumenty po lewej stronie. Obsługujemy PDF, DOCX, TXT, MD, HTML i RTF.'"></p>
+            <h2 class="mt-6 text-xl font-extrabold text-white" x-text="t('start.title')"></h2>
+            <p class="mt-2 text-sm leading-relaxed text-slate-400" x-text="docs.length ? t('start.readyDocs') : t('start.uploadDocs')"></p>
 
             <div class="mt-7 space-y-3 text-left">
-              <template x-for="step in [
-                {n: '1', t: 'Wgraj pliki', d: 'Drag & drop lub wybór z dysku — także kilka naraz.'},
-                {n: '2', t: 'Model analizuje', d: 'Duże pliki są dzielone na części i liczone pojedynczo.'},
-                {n: '3', t: 'Odbierz streszczenie', d: 'Markdown: w skrócie, kluczowe punkty, wnioski.'}
-              ]" :key="step.n">
+              <template x-for="step in howSteps" :key="step.n">
                 <div class="flex items-start gap-3 rounded-xl border border-white/8 bg-white/[.03] px-3.5 py-3">
                   <span class="grid h-6 w-6 shrink-0 place-items-center rounded-lg grad-btn text-[11px] font-black text-white" x-text="step.n"></span>
                   <span>
@@ -346,7 +365,7 @@ tailwind.config = {
             </div>
 
             <div class="relative mt-6 text-lg font-extrabold text-white">Thinking<span class="grad-text" x-text="dots"></span></div>
-            <p class="relative mt-1 text-sm text-slate-400" x-text="stage || 'Przygotowuję...'"></p>
+            <p class="relative mt-1 text-sm text-slate-400" x-text="stage || t('thinking.preparing')"></p>
 
             <div class="relative mx-auto mt-6 max-w-sm">
               <div class="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
@@ -356,7 +375,7 @@ tailwind.config = {
               </div>
               <div class="mt-1.5 flex justify-between text-[10.5px] font-medium text-slate-500">
                 <span x-text="providerLabel"></span>
-                <span x-text="progress !== null ? progress + '%' : 'analiza w toku'"></span>
+                <span x-text="progress !== null ? progress + '%' : t('thinking.inProgress')"></span>
               </div>
             </div>
           </div>
@@ -387,21 +406,20 @@ tailwind.config = {
                 <svg class="h-4.5 w-4.5" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
               </span>
               <div>
-                <div class="text-sm font-extrabold text-white">Podsumowanie</div>
+                <div class="text-sm font-extrabold text-white" x-text="t('result.title')"></div>
                 <div class="text-[11px] text-slate-500" x-text="statsLabel"></div>
               </div>
             </div>
             <div class="flex flex-wrap gap-1.5">
               <button @click="copySummary()" class="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-[11px] font-bold text-slate-200 transition hover:bg-white/10">
                 <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                <span x-text="copied ? 'Skopiowano!' : 'Kopiuj'"></span>
+                <span x-text="copied ? t('result.copied') : t('result.copy')"></span>
               </button>
               <button @click="downloadSummary()" class="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-[11px] font-bold text-slate-200 transition hover:bg-white/10">
                 <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
                 .md
               </button>
-              <button @click="reset()" class="inline-flex items-center gap-1.5 rounded-lg grad-btn px-2.5 py-1.5 text-[11px] font-bold text-white transition">
-                Nowe
+              <button @click="reset()" class="inline-flex items-center gap-1.5 rounded-lg grad-btn px-2.5 py-1.5 text-[11px] font-bold text-white transition" x-text="t('result.new')">
               </button>
             </div>
           </div>
@@ -412,7 +430,7 @@ tailwind.config = {
 
           <div x-show="statsFiles.length" class="border-t border-white/8 px-6 py-3.5">
             <div class="flex flex-wrap items-center gap-1.5">
-              <span class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Źródło:</span>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-slate-500" x-text="t('result.source')"></span>
               <template x-for="f in statsFiles" :key="f">
                 <span class="max-w-[180px] truncate rounded-md bg-white/5 px-2 py-1 text-[11px] font-medium text-slate-300" x-text="f" :title="f"></span>
               </template>
@@ -436,8 +454,7 @@ tailwind.config = {
     </div>
   </div>
 
-  <footer class="border-t border-white/5 py-6 text-center text-[11px] text-slate-600">
-    SummaryAgent · Ollama lub dowolne API zgodne z OpenAI (ustawienia w <code class="text-slate-500">.env</code>) · dokumenty przechowywane tylko w pamięci serwera
+  <footer class="border-t border-white/5 py-6 text-center text-[11px] text-slate-600" x-html="t('footer')">
   </footer>
 
   <!-- moduł PRZED Alpine: x-data="summaryApp()" wymaga globala ustawionego przed startem Alpine -->

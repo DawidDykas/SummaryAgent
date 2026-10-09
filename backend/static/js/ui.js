@@ -1,16 +1,18 @@
 /** Pomocnicze funkcje prezentacji (bez stanu). */
 
-export function fmtNum(n) {
-  return new Intl.NumberFormat('pl-PL').format(n || 0);
+export function fmtNum(n, lang = 'pl') {
+  return new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'pl-PL').format(n || 0);
 }
 
-export function partsWord(n) {
+export function partsWord(n, lang = 'pl') {
+  if (lang === 'en') return n === 1 ? 'part' : 'parts';
   return n === 1 ? 'część' : 'części';
 }
 
-export function firstLine(text) {
+export function firstLine(text, lang = 'pl') {
   const line = (text || '').split('\n').find((l) => l.trim()) || '';
-  return line.replace(/^#+\s*/, '').slice(0, 80) || '(bez tytułu)';
+  const fallback = lang === 'en' ? '(no title)' : '(bez tytułu)';
+  return line.replace(/^#+\s*/, '').slice(0, 80) || fallback;
 }
 
 const BADGE_CLASSES = {

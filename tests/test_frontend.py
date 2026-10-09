@@ -32,14 +32,14 @@ def test_all_modules_load():
         """
         globalThis.window = {};
         globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
-        for (const name of ['api', 'sse', 'history', 'ui', 'app']) {
+        for (const name of ['api', 'sse', 'history', 'ui', 'i18n', 'app']) {
           await import(`./${name}.js`);
           console.log(name + ':OK');
         }
         """
     )
     assert result.returncode == 0, result.stderr
-    for name in ("api", "sse", "history", "ui", "app"):
+    for name in ("api", "sse", "history", "ui", "i18n", "app"):
         assert f"{name}:OK" in result.stdout
 
 
@@ -49,7 +49,12 @@ def test_summary_app_initializes_and_helpers_work():
         """
         globalThis.window = {};
         globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
-        globalThis.document = { querySelector: () => null, createElement: () => ({ click() {} }) };
+        globalThis.document = {
+          title: '',
+          documentElement: { lang: 'pl' },
+          querySelector: () => null,
+          createElement: () => ({ click() {} }),
+        };
         globalThis.marked = { parse: (s) => s };
         globalThis.DOMPurify = { sanitize: (s) => s };
 
@@ -61,6 +66,8 @@ def test_summary_app_initializes_and_helpers_work():
           'copySummary', 'downloadSummary', 'reset', 'showError', 'loadHistory', 'clearHistory',
           'renderedSummary', 'statsLabel', 'providerLabel', 'totalChars', 'totalChunks',
           'badgeClass', 'shortFmt', 'fmtNum', 'partsWord', 'firstLine',
+          'langFlag', 'langName', 'langOpen', 'langs',
+          't', 'howSteps', 'syncDocLang',
         ];
         const missing = required.filter((k) => !(k in app));
         if (missing.length) { console.error('BRAK KLUCZY: ' + missing.join(',')); process.exit(1); }
@@ -72,6 +79,27 @@ def test_summary_app_initializes_and_helpers_work():
         if (app.partsWord(1) !== 'część' || app.partsWord(2) !== 'części') { console.error('partsWord zły'); process.exit(1); }
         if (app.firstLine('## Tytuł\\ntreść') !== 'Tytuł') { console.error('firstLine zły: ' + app.firstLine('## Tytuł')); process.exit(1); }
         if (app.summary !== '' || app.busy !== false || app.lang !== 'pl') { console.error('stan domyślny zły'); process.exit(1); }
+        if (app.langFlag !== '🇵🇱' || app.langName !== 'Polski') { console.error('flaga/język domyślny zły'); process.exit(1); }
+        app.lang = 'en';
+        if (app.langFlag !== '🇬🇧' || app.langName !== 'English') { console.error('przełączenie języka złe'); process.exit(1); }
+
+        // i18n: ten sam klucz, dwa języki + interpolacja
+        if (app.t('nav.upload') !== 'Upload files') { console.error('i18n en: ' + app.t('nav.upload')); process.exit(1); }
+        app.lang = 'pl';
+        if (app.t('nav.upload') !== 'Wgraj pliki') { console.error('i18n pl: ' + app.t('nav.upload')); process.exit(1); }
+        const withVars = app.t('drop.max', {mb: 25, n: 10});
+        if (!withVars.includes('25') || !withVars.includes('10')) { console.error('interpolacja zła: ' + withVars); process.exit(1); }
+        if (app.t('nie.ma.takiego.klucza') !== 'nie.ma.takiego.klucza') { console.error('fallback klucza zły'); process.exit(1); }
+
+        // syncDocLang aktualizuje <title> i lang dokumentu
+        app.lang = 'en';
+        app.syncDocLang('en');
+        if (globalThis.document.documentElement.lang !== 'en') { console.error('html lang niezmieniony'); process.exit(1); }
+        if (!globalThis.document.title.includes('AI document summaries')) { console.error('title niezmieniony: ' + globalThis.document.title); process.exit(1); }
+
+        // kroki "jak to działa" po angielsku
+        const steps = app.howSteps;
+        if (steps.length !== 3 || steps[0].t !== 'Upload files') { console.error('howSteps złe: ' + JSON.stringify(steps)); process.exit(1); }
 
         // window.summaryApp jest ustawione - tak Alpine znajduje komponent
         if (typeof globalThis.window.summaryApp !== 'function') { console.error('brak window.summaryApp'); process.exit(1); }
