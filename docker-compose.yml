@@ -25,14 +25,15 @@ services:
     ports:
       - "11434:11434"
     restart: unless-stopped
-    # GPU (NVIDIA) - odkomentuj:
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: all
-    #           capabilities: [gpu]
+    # GPU (NVIDIA) - jeśli masz inny niż NVIDIA GPU lub nie masz GPU,
+    # usuń poniższy blok 'deploy'
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
 
   # ---------- automatyczne pobranie modelu przy starcie ----------
   init-ollama:

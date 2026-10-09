@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     request_timeout: float = 300.0
     summary_temperature: float = 0.3
     max_retries: int = 2
+    # ile części dużego dokumentu analizować równolegle
+    summary_concurrency: int = 2
 
     @property
     def provider(self) -> str:

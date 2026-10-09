@@ -1,21 +1,30 @@
+const STORE_KEY = 'summaryagent.history';
+
 function summaryApp() {
   return {
+    // --- stan ---
     docs: [],
     errors: [],
+    expanded: null,
     busy: false,
     dragging: false,
     lang: 'pl',
     length: 'standard',
+    // --- przebieg generowania ---
     stage: '',
+    steps: [],
     progress: null,
     dots: '',
+    // --- wynik ---
     summary: '',
     stats: null,
     statsFiles: [],
+    copied: false,
+    // --- otoczenie ---
     health: null,
     ollamaWarning: '',
+    history: [],
     toast: '',
-    copied: false,
     maxFileMb: 25,
     maxFiles: 10,
     _dotTimer: null,
@@ -23,6 +32,7 @@ function summaryApp() {
 
     async init() {
       this._animateDots();
+      this._loadHistory();
       try {
         const r = await fetch('/api/health');
         if (r.ok) this.health = await r.json();
@@ -38,6 +48,7 @@ function summaryApp() {
       }
     },
 
+    // ---------- wyliczenia ----------
     get renderedSummary() {
       if (!this.summary) return '';
       try {
@@ -51,15 +62,32 @@ function summaryApp() {
       return this.health?.label || 'model LLM';
     },
 
+    get totalChars() {
+      return this.docs.reduce((sum, d) => sum + d.chars, 0);
+    },
+
+    get totalChunks() {
+      return this.docs.reduce((sum, d) => sum + d.chunks, 0);
+    },
+
     get statsLabel() {
       if (!this.stats) return '';
       const s = this.stats;
       return [
-        `${s.model}`,
-        `${s.chunks} ${s.chunks === 1 ? 'część' : 'części'}`,
+        s.model,
+        `${s.chunks} ${this.partsWord(s.chunks)}`,
         `${this.fmtNum(s.chars)} znaków`,
         `${s.duration_s}s`,
       ].join(' · ');
+    },
+
+    partsWord(n) {
+      return n === 1 ? 'część' : 'części';
+    },
+
+    firstLine(text) {
+      const line = (text || '').split('\n').find((l) => l.trim()) || '';
+      return line.replace(/^#+\s*/, '').slice(0, 80) || '(bez tytułu)';
     },
 
     // ---------- pliki ----------
@@ -104,17 +132,34 @@ function summaryApp() {
 
     async removeDoc(id) {
       this.docs = this.docs.filter((d) => d.id !== id);
+      this.expanded = null;
       try { await fetch(`/api/documents/${id}`, { method: 'DELETE' }); } catch (_) { /* ignore */ }
     },
 
-    // ---------- summary ----------
+    // ---------- oś kroków (Thinking) ----------
+    _step(key, text, state) {
+      const i = this.steps.findIndex((s) => s.key === key);
+      if (i >= 0) {
+        this.steps[i].text = text;
+        if (state) this.steps[i].state = state;
+      } else {
+        this.steps.forEach((s) => { if (s.state === 'active') s.state = 'done'; });
+        this.steps.push({ key, text, state: state || 'active' });
+      }
+    },
+
+    // ---------- generowanie ----------
     async generate() {
       if (this.busy || !this.docs.length) return;
       this.busy = true;
       this.summary = '';
       this.stats = null;
+      this.statsFiles = [];
+      this.steps = [];
       this.progress = null;
       this.stage = 'Przygotowuję zapytanie...';
+      this._step('prepare', 'Łączenie dokumentów');
+      this._scrollTo('#thinking-panel');
 
       const ids = this.docs.map((d) => d.id).join(',');
       const url = `/api/summary/stream?doc_ids=${encodeURIComponent(ids)}&lang=${this.lang}&length=${this.length}`;
@@ -145,6 +190,7 @@ function summaryApp() {
       const handle = (event, raw) => {
         let data;
         try { data = JSON.parse(raw); } catch (_) { return; }
+
         if (event === 'status') {
           this.stage = data.message || '';
           if (typeof data.total === 'number' && data.total > 0 && typeof data.progress === 'number') {
@@ -152,11 +198,18 @@ function summaryApp() {
           } else {
             this.progress = null;
           }
+          if (data.step === 'prepare') this._step('prepare', 'Łączenie dokumentów');
+          else if (data.step === 'chunk') this._step('chunk', data.message || 'Dzielenie na części');
+          else if (data.step === 'thinking') this._step('thinking', data.message || 'Analiza modelu');
+          else if (data.step === 'synthesize') this._step('synthesize', data.message || 'Scalanie wyniku');
         } else if (event === 'done') {
           finished = true;
+          this.steps.forEach((s) => (s.state = 'done'));
           this.summary = data.summary || '';
           this.stats = data.stats || null;
           this.statsFiles = data.files || [];
+          this._saveHistory();
+          this._scrollTo('#result-panel');
         } else if (event === 'error') {
           finished = true;
           this.showError(data.message || 'Model zwrócił błąd.');
@@ -184,12 +237,15 @@ function summaryApp() {
       if (!finished) this.showError('Strumień zakończony bez wyniku — sprawdź logi serwera.');
     },
 
-    // ---------- akcje ----------
-    copySummary() {
-      navigator.clipboard?.writeText(this.summary).then(() => {
+    // ---------- akcje na wyniku ----------
+    async copySummary() {
+      try {
+        await navigator.clipboard.writeText(this.summary);
         this.copied = true;
         setTimeout(() => (this.copied = false), 1800);
-      });
+      } catch (_) {
+        this.showError('Przeglądarka zablokowała kopiowanie do schowka.');
+      }
     },
 
     downloadSummary() {
@@ -207,18 +263,62 @@ function summaryApp() {
     reset() {
       this.docs = [];
       this.errors = [];
+      this.expanded = null;
       this.summary = '';
       this.stats = null;
+      this.statsFiles = [];
+      this.steps = [];
       this.stage = '';
       this.progress = null;
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+
+    // ---------- historia (localStorage) ----------
+    _loadHistory() {
+      try {
+        this.history = JSON.parse(localStorage.getItem(STORE_KEY) || '[]');
+        if (!Array.isArray(this.history)) this.history = [];
+      } catch (_) {
+        this.history = [];
+      }
+    },
+
+    _saveHistory() {
+      if (!this.summary || !this.stats) return;
+      const item = {
+        id: Date.now(),
+        date: new Date().toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' }),
+        summary: this.summary.slice(0, 20000),
+        stats: this.stats,
+        files: this.statsFiles,
+      };
+      this.history = [item, ...this.history.filter((h) => h.summary !== item.summary)].slice(0, 8);
+      try {
+        localStorage.setItem(STORE_KEY, JSON.stringify(this.history));
+      } catch (_) {
+        this.history = this.history.slice(0, 4);
+        try { localStorage.setItem(STORE_KEY, JSON.stringify(this.history)); } catch (_) { /* ignore */ }
+      }
+    },
+
+    loadHistory(h) {
+      this.summary = h.summary;
+      this.stats = h.stats;
+      this.statsFiles = h.files || [];
+      this.busy = false;
+      this._scrollTo('#result-panel');
+    },
+
+    clearHistory() {
+      this.history = [];
+      try { localStorage.removeItem(STORE_KEY); } catch (_) { /* ignore */ }
     },
 
     // ---------- pomocnicze ----------
     showError(msg) {
       this.toast = msg;
       clearTimeout(this._toastTimer);
-      this._toastTimer = setTimeout(() => (this.toast = ''), 7000);
+      this._toastTimer = setTimeout(() => (this.toast = ''), 8000);
     },
 
     fmtNum(n) {
@@ -239,6 +339,14 @@ function summaryApp() {
 
     shortFmt(fmt) {
       return fmt === 'Markdown' ? 'MD' : fmt.toUpperCase();
+    },
+
+    _scrollTo(selector) {
+      if (window.innerWidth < 1024) {
+        setTimeout(() => {
+          document.querySelector(selector)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 80);
+      }
     },
 
     _animateDots() {

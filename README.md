@@ -20,8 +20,8 @@ Przy pierwszym starcie komplet pobiera model `llama3.2` (~2 GB).
 
 Otwórz **http://localhost:8000**
 
-> **GPU (NVIDIA):** `docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build`
-> — osobny plik `docker-compose.gpu.yml` dokłada rezerwację GPU do Ollamy.
+> **GPU:** Ollama startuje domyślnie z GPU (NVIDIA) — sekcja `deploy` w `docker-compose.yml`.
+> Bez karty NVIDIA usuń ten blok z pliku.
 
 > Chcesz tylko API (bez lokalnego modelu)? `docker compose up -d --build api --no-deps`
 
@@ -82,6 +82,10 @@ Przykładowe wywołanie strumienia:
 GET /api/summary/stream?doc_ids=abc123,def456&lang=pl&length=standard
 ```
 
+Parametr `length` (objętość podsumowania): `short` (~120 słów), `standard` (~300),
+`long` (~600), `xl` (~1200 słów). Duże pliki są dzielone na części i analizowane
+**równolegle** (domyślnie 2 naraz — patrz `SUMMARY_CONCURRENCY`).
+
 ---
 
 ## Konfiguracja (`.env`)
@@ -95,6 +99,7 @@ GET /api/summary/stream?doc_ids=abc123,def456&lang=pl&length=standard
 | `OLLAMA_MODEL` | `llama3.2` | model Ollamy |
 | `CHUNK_SIZE` | `12000` | ile znaków na część przy dzieleniu dużych plików |
 | `CHUNK_OVERLAP` | `400` | nakładanie się części |
+| `SUMMARY_CONCURRENCY` | `2` | ile części dużego dokumentu analizować równolegle (1–8) |
 | `MAX_FILE_SIZE_MB` | `25` | limit rozmiaru pliku |
 | `MAX_FILES` | `10` | limit plików na żądanie |
 | `DOC_TTL_SECONDS` | `3600` | jak długo dokumenty żyją w pamięci |
