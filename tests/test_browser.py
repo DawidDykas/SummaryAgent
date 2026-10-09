@@ -103,16 +103,42 @@ async def _browser_test(base: str) -> dict:
             }"""
         )
 
+        # 1) klik w dropzone -> dialog systemowy -> wybór 2 plików
         tmp = Path("/tmp") / "e2e_upload.txt"
         tmp.write_text("Dokument testowy do przeslania przez UI. " * 3)
-        await page.set_input_files("input[type=file]", str(tmp))
-        await page.wait_for_timeout(1200)
+        tmp2 = Path("/tmp") / "e2e_drop.txt"
+        tmp2.write_text("Drugi dokument. " * 3)
+        async with page.expect_file_chooser(timeout=5000) as fc_info:
+            await page.locator("#dropzone .drop-zone").click()
+        await (await fc_info.value).set_files([str(tmp)])
+        await page.wait_for_timeout(1000)
 
-        after_upload = await page.evaluate(
+        after_click = await page.evaluate(
             """() => {
                 const d = document.querySelector('[x-data]')._x_dataStack[0];
                 return {docs: d.docs.length, format: d.docs[0]?.format || null,
                         nameShown: document.body.innerText.includes('e2e_upload')};
+            }"""
+        )
+
+        # 2) drag & drop na dropzone
+        await page.evaluate(
+            """() => {
+                const f = new File(['drop content'], 'e2e_dnd.txt', {type: 'text/plain'});
+                const dt = new DataTransfer();
+                dt.items.add(f);
+                const target = [...document.querySelectorAll('*')].find((e) =>
+                    [...e.attributes].some((a) => a.name.startsWith('@') && a.name.toLowerCase().includes('drop'))
+                );
+                target.dispatchEvent(new DragEvent('drop', {bubbles: true, cancelable: true, dataTransfer: dt}));
+            }"""
+        )
+        await page.wait_for_timeout(1200)
+
+        after_drop = await page.evaluate(
+            """() => {
+                const d = document.querySelector('[x-data]')._x_dataStack[0];
+                return {docs: d.docs.length, names: d.docs.map((x) => x.name)};
             }"""
         )
 
@@ -125,7 +151,8 @@ async def _browser_test(base: str) -> dict:
 
     return {
         "state": state,
-        "after_upload": after_upload,
+        "after_click": after_click,
+        "after_drop": after_drop,
         "button": {"visible": btn_visible, "enabled": btn_enabled},
         "page_errors": page_errors,
         "console_errors": console_errors,
@@ -145,7 +172,10 @@ def test_ui_mounts_without_js_errors(live_server):
     assert st["hasSummaryApp"], "window.summaryApp nie ustawione"
     assert st["busy"] is False and st["lang"] == "pl"
 
-    up = report["after_upload"]
+    up = report["after_click"]
     assert up["docs"] == 1 and up["format"] == "TXT" and up["nameShown"], up
+
+    dnd = report["after_drop"]
+    assert dnd["docs"] == 2 and "e2e_dnd.txt" in dnd["names"], dnd
 
     assert report["button"]["visible"] and report["button"]["enabled"]
