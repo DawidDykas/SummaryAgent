@@ -1,15 +1,16 @@
-import asyncio
-
 from fastapi import APIRouter, Depends, File, UploadFile
 
-from backend.adapters.extractors import ACCEPT, ExtractionError, extract_text, format_of
-from backend.api.dependencies import get_settings, get_store
+from backend.api.dependencies import (
+    get_document_service,
+    get_settings,
+    get_store,
+)
 from backend.api.schemas import DocumentInfo, UploadError, UploadResponse
-from backend.core.chunking import split_text
 from backend.core.config import Settings
 from backend.core.exceptions import BadRequestError, DocumentNotFoundError
 from backend.core.models import StoredDocument
 from backend.core.ports.store import DocumentStore
+from backend.core.services.documents import DocumentService
 
 router = APIRouter(prefix="/api", tags=["documents"])
 
@@ -30,44 +31,27 @@ def _info(doc: StoredDocument) -> DocumentInfo:
 async def upload_documents(
     files: list[UploadFile] = File(...),
     settings: Settings = Depends(get_settings),
-    store: DocumentStore = Depends(get_store),
+    service: DocumentService = Depends(get_document_service),
 ) -> UploadResponse:
     if not files:
         raise BadRequestError("Nie przesłano żadnych plików.")
-    if len(files) > settings.max_files:
-        raise BadRequestError(f"Za dużo plików naraz - maksymalnie {settings.max_files}.")
 
     limit = settings.max_file_size_mb * 1024 * 1024
-    response = UploadResponse()
-
+    items: list[tuple[str, bytes]] = []
     for upload in files:
         name = (upload.filename or "bez_nazwy").strip() or "bez_nazwy"
-        if format_of(name) is None:
-            response.errors.append(UploadError(name=name, error="Nieobsługiwany format pliku."))
-            continue
-        data = await upload.read(limit + 1)
-        if len(data) > limit:
-            response.errors.append(
-                UploadError(
-                    name=name, error=f"Plik przekracza limit {settings.max_file_size_mb} MB."
-                )
-            )
-            continue
-        if not data:
-            response.errors.append(UploadError(name=name, error="Plik jest pusty."))
-            continue
-        try:
-            fmt, text = await asyncio.to_thread(extract_text, name, data)
-        except ExtractionError as exc:
-            response.errors.append(UploadError(name=name, error=str(exc)))
-            continue
-        except Exception:
-            response.errors.append(UploadError(name=name, error="Nie udało się odczytać pliku."))
-            continue
+        items.append((name, await upload.read(limit + 1)))
 
-        chunks = split_text(text, settings.chunk_size, settings.chunk_overlap)
-        doc = store.put(name, fmt, text, chunks=len(chunks))
-        response.documents.append(_info(doc))
+    results = await service.upload(items)
+
+    response = UploadResponse()
+    for result in results:
+        if result.document is not None:
+            response.documents.append(_info(result.document))
+        else:
+            response.errors.append(
+                UploadError(name=result.name, error=result.error or "Nie udało się przetworzyć pliku.")
+            )
 
     if not response.documents and not response.errors:
         response.errors.append(UploadError(name="-", error="Nie udało się przetworzyć plików."))
@@ -84,4 +68,4 @@ async def delete_document(
     return {"deleted": doc_id}
 
 
-__all__ = ["router", "ACCEPT"]
+__all__ = ["router"]
