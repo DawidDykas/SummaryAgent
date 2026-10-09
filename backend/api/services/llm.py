@@ -3,10 +3,9 @@ import asyncio
 import httpx
 
 from backend.api.config import Settings, get_settings
+from backend.core.exceptions import LLMError
 
-
-class LLMError(Exception):
-    pass
+__all__ = ["LLMError", "chat", "ollama_status"]
 
 
 def _friendly_external_error(status: int, body: str) -> str:

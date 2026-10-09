@@ -3,7 +3,7 @@ import json
 import time
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Query
 from fastapi.responses import StreamingResponse
 
 from backend.api.config import Settings, get_settings
@@ -16,6 +16,7 @@ from backend.api.services.prompts import (
     final_prompt,
 )
 from backend.api.services.store import StoredDocument, store
+from backend.core.exceptions import BadRequestError, DocumentNotFoundError
 
 router = APIRouter(prefix="/api", tags=["summary"])
 
@@ -171,10 +172,10 @@ async def summary_stream(
 ):
     ids = [i.strip() for i in doc_ids.split(",") if i.strip()]
     if not ids:
-        raise HTTPException(status_code=400, detail="Nie wybrano żadnych dokumentów.")
+        raise BadRequestError("Nie wybrano żadnych dokumentów.")
     settings = get_settings()
     if len(ids) > settings.max_files:
-        raise HTTPException(status_code=400, detail="Za dużo dokumentów w żądaniu.")
+        raise BadRequestError("Za dużo dokumentów w żądaniu.")
 
     docs: list[StoredDocument] = []
     missing: list[str] = []
@@ -185,10 +186,7 @@ async def summary_stream(
         else:
             docs.append(doc)
     if missing:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Dokument(y) {', '.join(missing)} wygasł/y - wgraj pliki ponownie.",
-        )
+        raise DocumentNotFoundError(missing)
     return StreamingResponse(
         _event_stream(docs, lang, length),
         media_type="text/event-stream",

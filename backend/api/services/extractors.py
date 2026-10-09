@@ -6,9 +6,9 @@ from docx import Document as DocxDocument
 from pypdf import PdfReader
 from striprtf.striprtf import rtf_to_text
 
+from backend.core.exceptions import ExtractionError
 
-class ExtractionError(Exception):
-    pass
+__all__ = ["ACCEPT", "ExtractionError", "FORMATS", "extract_text", "format_of"]
 
 
 FORMATS: dict[str, str] = {

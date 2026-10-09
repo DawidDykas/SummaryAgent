@@ -1,12 +1,13 @@
 import asyncio
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, UploadFile
 
 from backend.api.config import get_settings
 from backend.api.schemas import DocumentInfo, UploadError, UploadResponse
 from backend.api.services.chunker import split_text
 from backend.api.services.extractors import ACCEPT, ExtractionError, extract_text, format_of
 from backend.api.services.store import store
+from backend.core.exceptions import BadRequestError, DocumentNotFoundError
 
 router = APIRouter(prefix="/api", tags=["documents"])
 
@@ -27,12 +28,9 @@ def _info(doc) -> DocumentInfo:
 async def upload_documents(files: list[UploadFile] = File(...)) -> UploadResponse:
     settings = get_settings()
     if not files:
-        raise HTTPException(status_code=400, detail="Nie przesłano żadnych plików.")
+        raise BadRequestError("Nie przesłano żadnych plików.")
     if len(files) > settings.max_files:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Za dużo plików naraz - maksymalnie {settings.max_files}.",
-        )
+        raise BadRequestError(f"Za dużo plików naraz - maksymalnie {settings.max_files}.")
 
     limit = settings.max_file_size_mb * 1024 * 1024
     response = UploadResponse()
@@ -79,7 +77,7 @@ async def upload_documents(files: list[UploadFile] = File(...)) -> UploadRespons
 @router.delete("/documents/{doc_id}")
 async def delete_document(doc_id: str) -> dict:
     if not store.delete(doc_id):
-        raise HTTPException(status_code=404, detail="Dokument nie istnieje.")
+        raise DocumentNotFoundError(doc_id, message="Dokument nie istnieje.")
     return {"deleted": doc_id}
 
 

@@ -1,13 +1,14 @@
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.api.config import get_settings
 from backend.api.routers import documents, ollama, summary
 from backend.api.services.extractors import FORMATS
+from backend.core.exceptions import SummaryAgentError
 
 STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
 
@@ -23,6 +24,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(SummaryAgentError)
+async def domain_error_handler(request: Request, exc: SummaryAgentError) -> JSONResponse:
+    """Błędy domenowe -> spójne odpowiedzi HTTP bez śladów w 500-kach."""
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
+
 
 app.include_router(documents.router)
 app.include_router(summary.router)
