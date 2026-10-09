@@ -1,0 +1,58 @@
+services:
+  # ---------- API + UI ----------
+  api:
+    build: .
+    container_name: summaryagent-api
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # W Dockerze Ollama osiągalna jest pod nazwą serwisu
+      OLLAMA_BASE_URL: http://ollama:11434
+    depends_on:
+      ollama:
+        condition: service_started
+    restart: unless-stopped
+
+  # ---------- Lokalny model ----------
+  ollama:
+    image: ollama/ollama:latest
+    container_name: summaryagent-ollama
+    volumes:
+      - ollama-models:/root/.ollama
+    ports:
+      - "11434:11434"
+    restart: unless-stopped
+    # GPU (NVIDIA) - odkomentuj:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  # ---------- automatyczne pobranie modelu przy starcie ----------
+  init-ollama:
+    image: ollama/ollama:latest
+    container_name: summaryagent-init
+    depends_on:
+      - ollama
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Pobieranie modelu $$OLLAMA_MODEL ..."
+        for i in 1 2 3 4 5 6; do
+          ollama list >/dev/null 2>&1 && break
+          sleep 3
+        done
+        ollama pull $$OLLAMA_MODEL || echo 'Pominięto pobieranie modelu.'
+    restart: "no"
+
+volumes:
+  ollama-models:
