@@ -38,7 +38,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="SummaryAgent",
     description="Wgraj pliki i otrzymaj ich podsumowanie od modelu LLM.",
-    version="1.0.0",
+    version="1.1.0",
     lifespan=lifespan,
 )
 
