@@ -11,11 +11,15 @@ from backend.adapters.extractors import labels as format_labels
 from backend.adapters.llm import create_llm_client
 from backend.adapters.store import create_store
 from backend.api.dependencies import get_settings
+from backend.api.middleware import RequestContextMiddleware
 from backend.api.routers import documents, ollama, summary
 from backend.core.config import Settings
 from backend.core.exceptions import SummaryAgentError
+from backend.core.logging import setup_logging
 
 STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
+
+setup_logging(get_settings())
 
 
 @asynccontextmanager
@@ -44,6 +48,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RequestContextMiddleware)
 
 
 @app.exception_handler(SummaryAgentError)

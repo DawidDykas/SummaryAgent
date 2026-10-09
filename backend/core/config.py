@@ -30,10 +30,23 @@ class Settings(BaseSettings):
     # ile części dużego dokumentu analizować równolegle
     summary_concurrency: int = Field(default=2, ge=1, le=8)
 
+    # --- Logowanie -----------------------------------------------------------
+    log_level: str = "INFO"
+    log_json: bool = False  # True = JSON (prod), False = czytelna konsola (dev)
+
     @model_validator(mode="after")
     def _check_overlap(self) -> "Settings":
         if self.chunk_overlap >= self.chunk_size:
             raise ValueError("chunk_overlap musi być mniejsze od chunk_size")
+        return self
+
+    @model_validator(mode="after")
+    def _check_log_level(self) -> "Settings":
+        allowed = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+        level = self.log_level.upper()
+        if level not in allowed:
+            raise ValueError(f"log_level musi być jednym z: {', '.join(sorted(allowed))}")
+        self.log_level = level
         return self
 
     @property
