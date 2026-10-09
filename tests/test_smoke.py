@@ -32,7 +32,7 @@ def test_ollama_status_shape():
 def test_upload_and_delete_txt():
     resp = client.post(
         "/api/documents",
-        files=[("files", ("notatka.txt", "Ala ma kota. ".encode("utf-8"), "text/plain"))],
+        files=[("files", ("notatka.txt", b"Ala ma kota. ", "text/plain"))],
     )
     assert resp.status_code == 200
     body = resp.json()
