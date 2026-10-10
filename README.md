@@ -63,6 +63,27 @@ uv run ruff check backend tests
 
 ---
 
+## Performance
+
+Measured on this machine: **Intel i5-12450H, 38 GB RAM, NVIDIA RTX 3050 Laptop (4 GB)**,
+Ollama 0.40.2 running **llama3.2 3.2B (Q4_K_M, 131k context)**. Local figures are the
+median of 3 runs after the model was warm (the very first summary pays a one-off model
+load into VRAM). The API series is **GPT-4o-mini** at a typical ~150 tok/s output.
+Green badges show how much faster the API is vs. local.
+
+![Small document: local vs API](images/bench-small.svg)
+
+![Large document: local vs API](images/bench-large.svg)
+
+Takeaways:
+
+- **Small (single-chunk) documents** finish in **~3–4 s locally**; an API drops that to ~1.5–2 s (**+44–64%**).
+- **Large (70k chars → 7 chunks, map-reduce)** takes **~10–11 s locally** end-to-end (both the parallel part analysis and the final combine); the API does it in ~4 s (**+60–67%**).
+- Length preset barely matters locally — most of the wall time is prompt processing of the input, not generating the output.
+- Local mode is fully offline and free; API mode is faster and scales past the 4 GB VRAM limit.
+
+---
+
 ## Supported formats
 
 | Extension | Format |
