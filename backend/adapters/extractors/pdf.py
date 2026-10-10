@@ -1,4 +1,4 @@
-"""Ekstrakcja tekstu z PDF (wymagana warstwa tekstowa - nie skan)."""
+"""Extract text from PDF (requires a text layer - not a scan)."""
 
 from __future__ import annotations
 

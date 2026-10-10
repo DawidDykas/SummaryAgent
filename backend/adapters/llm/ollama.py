@@ -1,4 +1,4 @@
-"""Klient lokalnej Ollamy + diagnostyka statusu (endpoint /api/ollama/status)."""
+"""Client for local Ollama + status diagnostics (endpoint /api/ollama/status)."""
 
 from __future__ import annotations
 

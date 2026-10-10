@@ -1,4 +1,4 @@
-"""Klient API zgodnego z OpenAI (OpenAI, Groq, OpenRouter, DeepSeek...)."""
+"""Client for OpenAI-compatible APIs (OpenAI, Groq, OpenRouter, DeepSeek...)."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ def friendly_error(status: int, body: str) -> str:
 
 
 class OpenAICompatClient:
-    """Jednorazowe wywołanie /chat/completions (ponowienia robi RetryingLLMClient)."""
+    """Single /chat/completions call (retries handled by RetryingLLMClient)."""
 
     def __init__(
         self,

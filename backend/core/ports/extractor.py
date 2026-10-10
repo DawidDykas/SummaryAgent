@@ -1,9 +1,10 @@
-"""Port (interfejs) ekstraktora tekstu z pliku.
+"""Port (interface) for extracting text from a file.
 
-Realizacja: rejestr w `backend/adapters/extractors/` (wywoływany przez
-DocumentService jako zwykły callable).
+Implementation: the registry in `backend/adapters/extractors/` (called by
+DocumentService as a plain callable).
 
-Uwaga: ciało metody to świadomie puste `...` - to *kontrakt*, nie brak kodu.
+Note: the method body is intentionally empty `...` - this is a *contract*,
+not missing code.
 """
 
 from __future__ import annotations
@@ -13,12 +14,12 @@ from typing import Protocol, runtime_checkable
 
 @runtime_checkable
 class TextExtractor(Protocol):
-    """Callable: (nazwa pliku, bajty) -> (format, tekst)."""
+    """Callable: (file name, bytes) -> (format, text)."""
 
     def __call__(self, file_name: str, data: bytes) -> tuple[str, str]:
-        """Zwraca (format, tekst).
+        """Return ``(format, text)``.
 
-        Implementacje rzucają `backend.core.exceptions.ExtractionError`
-        dla nieobsługiwanych formatów i błędów odczytu.
+        Implementations raise `backend.core.exceptions.ExtractionError`
+        for unsupported formats and read errors.
         """
         ...

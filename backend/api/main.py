@@ -24,7 +24,7 @@ setup_logging(get_settings())
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Tworzy zasoby aplikacji (magazyn, klient LLM) i zamyka je przy wyjściu."""
+    """Create app resources (store, LLM client) and close them on shutdown."""
     settings = get_settings()
     app.state.settings = settings
     app.state.store = create_store(settings)
@@ -37,7 +37,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="SummaryAgent",
-    description="Wgraj pliki i otrzymaj ich podsumowanie od modelu LLM.",
+    description="Upload files and get an LLM-generated summary of them.",
     version="1.1.0",
     lifespan=lifespan,
 )
@@ -53,7 +53,7 @@ app.add_middleware(RequestContextMiddleware)
 
 @app.exception_handler(SummaryAgentError)
 async def domain_error_handler(request: Request, exc: SummaryAgentError) -> JSONResponse:
-    """Błędy domenowe -> spójne odpowiedzi HTTP bez śladów w 500-kach."""
+    """Domain errors -> consistent HTTP responses without leaking traces into 500s."""
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
 
 

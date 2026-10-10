@@ -1,4 +1,4 @@
-"""Testy hierarchii wyjątków i exception handlerów API."""
+"""Tests for the exception hierarchy and API exception handlers."""
 
 from backend.core.exceptions import (
     BadRequestError,

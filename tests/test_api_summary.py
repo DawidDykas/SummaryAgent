@@ -1,4 +1,4 @@
-"""Testy integracyjne API: pełny przepływ upload -> SSE summary z fałszywym LLM."""
+"""API integration tests: full upload -> SSE summary flow with a fake LLM."""
 
 import json
 

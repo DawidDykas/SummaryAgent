@@ -1,4 +1,4 @@
-"""Ponowienia (retry) dowolnego klienta LLM - wspólna polityka dla wszystkich providerów."""
+"""Retries for any LLM client - one policy shared by all providers."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from backend.core.ports.llm import LLMClient, Message
 
 
 class RetryingLLMClient:
-    """Dekorator: powtarza wywołanie przy LLMError z liniowym backoffem."""
+    """Decorator: retries the call on LLMError with a linear backoff."""
 
     def __init__(
         self,

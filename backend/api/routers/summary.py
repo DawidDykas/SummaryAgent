@@ -23,20 +23,20 @@ def _sse(event: str, data: dict) -> str:
 
 
 async def _event_stream(events: AsyncIterator[Event]) -> AsyncIterator[str]:
-    """Formatuje zdarzenia domenowe na strumień SSE."""
+    """Format domain events into an SSE stream."""
     async for event, data in events:
         yield _sse(event, data)
 
 
 @router.get("/summary/stream")
 async def summary_stream(
-    doc_ids: str = Query(..., description="Lista id dokumentów po przecinku"),
-    lang: str = Query("pl", pattern="^(pl|en)$", description="język podsumowania"),
+    doc_ids: str = Query(..., description="Comma-separated list of document ids"),
+    lang: str = Query("pl", pattern="^(pl|en)$", description="summary language"),
     length: str = Query("standard", pattern=LENGTH_PATTERN),
-    ui_lang: str | None = Query(None, pattern="^(pl|en)$", description="język komunikatów UI"),
+    ui_lang: str | None = Query(None, pattern="^(pl|en)$", description="UI message language"),
     service: SummaryService = Depends(get_summary_service),
 ):
-    # resolve rzuca wyjątki ZANIM wystartuje odpowiedź (poprawny kod HTTP)
+    # resolve raises BEFORE the response starts (correct HTTP status code)
     docs = service.resolve(doc_ids.split(","))
     return StreamingResponse(
         _event_stream(service.events(docs, lang, length, msg_lang=ui_lang)),

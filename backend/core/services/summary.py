@@ -1,6 +1,6 @@
-"""Orchestration podsumowania: map-reduce dla dużych dokumentów + strumień zdarzeń.
+"""Summary orchestration: map-reduce for large documents + event stream.
 
-Zwraca zdarzenia ((nazwa_eventu, payload)) - formatowanie SSE to zadanie warstwy API.
+Yields events ((event name, payload)) - SSE formatting is the API layer's job.
 """
 
 from __future__ import annotations
@@ -51,7 +51,7 @@ _MESSAGES: dict[str, dict[str, str]] = {
 
 
 def _msg(lang: str, key: str, **vars: object) -> str:
-    """Komunikat statusu w wybranym języku (fallback: pl)."""
+    """Status message in the selected language (fallback: pl)."""
     table = _MESSAGES.get(lang) or _MESSAGES["pl"]
     template = table.get(key) or _MESSAGES["pl"][key]
     return template.format(**vars)
@@ -75,7 +75,7 @@ class SummaryService:
     settings: Settings
 
     def resolve(self, doc_ids: Sequence[str]) -> list[StoredDocument]:
-        """Pobiera dokumenty z magazynu - błędy jako wyjątki (przed startem strumienia)."""
+        """Fetch documents from the store - errors as exceptions (before the stream starts)."""
         ids = [i.strip() for i in doc_ids if i.strip()]
         if not ids:
             raise BadRequestError("Nie wybrano żadnych dokumentów.")
@@ -101,10 +101,10 @@ class SummaryService:
         length: str,
         msg_lang: str | None = None,
     ) -> AsyncIterator[Event]:
-        """Generuje zdarzenia: status* -> done | error.
+        """Yield events: status* -> done | error.
 
-        lang = język PODSUMOWANIA (prompt), msg_lang = język komunikatów UI
-        (domyślnie taki sam jak lang).
+        lang = SUMMARY language (prompt), msg_lang = UI message language
+        (defaults to the same as lang).
         """
         mlang = msg_lang or lang
         started = time.perf_counter()
@@ -129,7 +129,7 @@ class SummaryService:
                 )
                 queue: asyncio.Queue = asyncio.Queue()
                 task = asyncio.create_task(self._analyze_chunks(chunks, name, queue, mlang))
-                while True:  # przekaż statusy części do momentu zakończenia
+                while True:  # forward chunk statuses until the worker finishes
                     item = await queue.get()
                     if item is _SENTINEL:
                         break
@@ -179,10 +179,10 @@ class SummaryService:
         queue: asyncio.Queue,
         lang: str,
     ) -> tuple[list[str], list[Exception]]:
-        """Analizuje części równolegle (limit = settings.summary_concurrency).
+        """Analyze chunks in parallel (limit = settings.summary_concurrency).
 
-        Statusy trafiają do kolejki, na końcu wrzucany jest _SENTINEL.
-        Zwraca (wyniki w kolejności części, błędy).
+        Statuses go into the queue; _SENTINEL is pushed at the end.
+        Returns (results in chunk order, errors).
         """
         total = len(chunks)
         concurrency = max(1, min(self.settings.summary_concurrency, 8))
@@ -210,7 +210,7 @@ class SummaryService:
                         chunk_prompt(name, index, total, chunk),
                         max_tokens=1200,
                     )
-                except Exception as exc:  # błąd jednej części nie zrywa strumienia
+                except Exception as exc:  # one failed chunk must not break the stream
                     errors.append(exc)
                     return
                 results[index] = part

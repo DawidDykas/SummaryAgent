@@ -1,4 +1,4 @@
-"""Testy magazynu dokumentów (adapter in-memory)."""
+"""Tests for the document store (in-memory adapter)."""
 
 import time
 
@@ -38,7 +38,7 @@ def test_ids_are_unique():
 def test_expired_documents_are_dropped():
     store = InMemoryDocumentStore(ttl_seconds=1)
     doc = store.put("old.txt", "TXT", "tekst", 1)
-    doc.created_at = time.time() - 10  # symulacja starości
+    doc.created_at = time.time() - 10  # simulate age
 
     assert store.get(doc.id) is None
     assert store.delete(doc.id) is False

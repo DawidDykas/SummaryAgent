@@ -1,4 +1,4 @@
-"""Testy adapterów LLM: fabryka, OpenAI-compat, Ollama, retry."""
+"""Tests for LLM adapters: factory, OpenAI-compat, Ollama, retry."""
 
 import json
 

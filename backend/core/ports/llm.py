@@ -1,9 +1,11 @@
-"""Port (interfejs) klienta LLM.
+"""Port (interface) for the LLM client.
 
-Realizacje: `backend/adapters/llm/openai.py` i `backend/adapters/llm/ollama.py`,
-dobierane przez fabrykę `backend.adapters.llm.create_llm_client()`.
+Implementations: `backend/adapters/llm/openai.py` and
+`backend/adapters/llm/ollama.py`, selected by the factory
+`backend.adapters.llm.create_llm_client()`.
 
-Uwaga: ciała metod to świadomie puste `...` - to *kontrakt*, nie brak kodu.
+Note: method bodies are intentionally empty `...` - these are *contracts*,
+not missing code.
 """
 
 from __future__ import annotations
@@ -15,16 +17,16 @@ Message = dict[str, str]
 
 @runtime_checkable
 class LLMClient(Protocol):
-    """Kontrakt wspólny dla Ollamy i API zgodnych z OpenAI."""
+    """Contract shared by Ollama and OpenAI-compatible APIs."""
 
     async def chat(self, messages: list[Message], *, max_tokens: int = 1600) -> str:
-        """Zwraca treść odpowiedzi modelu (bez streamingu).
+        """Return the model's response content (non-streaming).
 
-        Implementacje rzucają `backend.core.exceptions.LLMError` przy błędach
-        sieci, HTTP lub pustej odpowiedzi.
+        Implementations raise `backend.core.exceptions.LLMError` on
+        network, HTTP or empty-response errors.
         """
         ...
 
     async def close(self) -> None:
-        """Zwalnia zasoby (połączenia HTTP) - wywoływane przy shutdowncie aplikacji."""
+        """Release resources (HTTP connections) - called at app shutdown."""
         ...

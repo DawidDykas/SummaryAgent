@@ -1,4 +1,4 @@
-"""Testy rejestratora ekstraktorów - wszystkie formaty + rozszerzalność."""
+"""Tests for the extractor registry - all formats + extensibility."""
 
 import io
 
@@ -11,7 +11,7 @@ from backend.core.exceptions import ExtractionError
 
 
 def make_pdf(text: str) -> bytes:
-    """Minimalny, poprawny PDF z warstwą tekstową (bez zewnętrznych zależności)."""
+    """Minimal, valid PDF with a text layer (no external dependencies)."""
     objects: list[bytes | None] = [
         b"<< /Type /Catalog /Pages 2 0 R >>",
         b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
@@ -99,7 +99,7 @@ def test_text_is_cleaned():
     assert "\n\n\n" not in text
 
 
-# ------------------------------------------------------------------ błędy ----
+# ---------------------------------------------------------------- errors -----
 
 
 def test_unsupported_format_rejected():
@@ -160,7 +160,7 @@ def test_supported_formats_and_accept_header():
     assert labels() == sorted(set(extractors.FORMATS.values()))
 
 
-# ------------------------------------------------------------ rozszerzalność -
+# ------------------------------------------------------------ extensibility --
 
 
 def test_register_new_format():

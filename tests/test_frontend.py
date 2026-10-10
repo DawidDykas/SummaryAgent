@@ -1,7 +1,7 @@
-"""Testy frontendu (moduły ES) uruchamiane w node - łapią brakujące importy itp.
+"""Frontend tests (ES modules) run in node - catch missing imports etc.
 
-Zabezpiecza przed powtórką błędu, przez który przestało działać UI:
-użycie `shortFmt` w app.js bez zaimportowania => ReferenceError w Alpine.
+Guards against a repeat of the bug that broke the UI:
+using `shortFmt` in app.js without importing it => ReferenceError in Alpine.
 """
 
 import shutil
@@ -14,7 +14,7 @@ import pytest
 NODE = shutil.which("node")
 STATIC_JS = Path(__file__).resolve().parents[1] / "backend" / "static" / "js"
 
-pytestmark = pytest.mark.skipif(NODE is None, reason="node niedostępny w środowisku")
+pytestmark = pytest.mark.skipif(NODE is None, reason="node not available in this environment")
 
 
 def run_node(script: str) -> subprocess.CompletedProcess:
@@ -44,7 +44,7 @@ def test_all_modules_load():
 
 
 def test_summary_app_initializes_and_helpers_work():
-    """Wywołanie summaryApp() nie może rzucić ReferenceError (brak importu)."""
+    """Calling summaryApp() must not raise ReferenceError (missing import)."""
     result = run_node(
         """
         globalThis.window = {};
@@ -70,58 +70,58 @@ def test_summary_app_initializes_and_helpers_work():
           't', 'howSteps', 'syncDocLang', 'uiLang', 'historyTitle',
         ];
         const missing = required.filter((k) => !(k in app));
-        if (missing.length) { console.error('BRAK KLUCZY: ' + missing.join(',')); process.exit(1); }
+        if (missing.length) { console.error('MISSING KEYS: ' + missing.join(',')); process.exit(1); }
 
-        if (app.shortFmt('Markdown') !== 'MD') { console.error('shortFmt zły'); process.exit(1); }
-        if (app.shortFmt('TXT') !== 'TXT') { console.error('shortFmt TXT zły'); process.exit(1); }
-        if (!app.badgeClass('PDF').includes('red')) { console.error('badgeClass zły'); process.exit(1); }
-        if (app.fmtNum(1234567).length < 5) { console.error('fmtNum zły'); process.exit(1); }
-        if (app.partsWord(1) !== 'część' || app.partsWord(2) !== 'części') { console.error('partsWord zły'); process.exit(1); }
-        if (app.firstLine('## Tytuł\\ntreść') !== 'Tytuł') { console.error('firstLine zły: ' + app.firstLine('## Tytuł')); process.exit(1); }
-        if (app.summary !== '' || app.busy !== false || app.lang !== 'pl' || app.uiLang !== 'pl') { console.error('stan domyślny zły'); process.exit(1); }
-        if (app.langFlag !== '🇵🇱' || app.langName !== 'Polski') { console.error('flaga/język domyślny zły'); process.exit(1); }
-        // FLAGA w headerze sledzi uiLang (jezyk interfejsu), NIE lang (jezyk podsumowania)
+        if (app.shortFmt('Markdown') !== 'MD') { console.error('shortFmt wrong'); process.exit(1); }
+        if (app.shortFmt('TXT') !== 'TXT') { console.error('shortFmt TXT wrong'); process.exit(1); }
+        if (!app.badgeClass('PDF').includes('red')) { console.error('badgeClass wrong'); process.exit(1); }
+        if (app.fmtNum(1234567).length < 5) { console.error('fmtNum wrong'); process.exit(1); }
+        if (app.partsWord(1) !== 'część' || app.partsWord(2) !== 'części') { console.error('partsWord wrong'); process.exit(1); }
+        if (app.firstLine('## Tytuł\\ntreść') !== 'Tytuł') { console.error('firstLine wrong: ' + app.firstLine('## Tytuł')); process.exit(1); }
+        if (app.summary !== '' || app.busy !== false || app.lang !== 'pl' || app.uiLang !== 'pl') { console.error('default state wrong'); process.exit(1); }
+        if (app.langFlag !== '🇵🇱' || app.langName !== 'Polski') { console.error('default flag/lang wrong'); process.exit(1); }
+        // HEADER FLAG tracks uiLang (interface language), NOT lang (summary language)
         app.uiLang = 'en';
-        if (app.langFlag !== '🇬🇧' || app.langName !== 'English') { console.error('flaga nie sledzi uiLang'); process.exit(1); }
+        if (app.langFlag !== '🇬🇧' || app.langName !== 'English') { console.error('flag does not track uiLang'); process.exit(1); }
         app.uiLang = 'pl';
-        if (app.langFlag !== '🇵🇱' || app.langName !== 'Polski') { console.error('flaga nie wraca na pl'); process.exit(1); }
+        if (app.langFlag !== '🇵🇱' || app.langName !== 'Polski') { console.error('flag does not return to pl'); process.exit(1); }
 
-        // t() sledzi uiLang...
+        // t() tracks uiLang...
         if (app.t('nav.upload') !== 'Wgraj pliki') { console.error('i18n pl: ' + app.t('nav.upload')); process.exit(1); }
         app.uiLang = 'en';
         if (app.t('nav.upload') !== 'Upload files') { console.error('i18n en: ' + app.t('nav.upload')); process.exit(1); }
-        // ...i jest NIEZALEZNE od jezyka podsumowania (lang)
+        // ...and is INDEPENDENT of the summary language (lang)
         app.lang = 'pl';
-        if (app.t('nav.upload') !== 'Upload files') { console.error('t() zalezne od lang - zle'); process.exit(1); }
+        if (app.t('nav.upload') !== 'Upload files') { console.error('t() depends on lang - wrong'); process.exit(1); }
         app.lang = 'en';
-        if (app.uiLang !== 'en') { console.error('zmiana lang nadpisala uiLang - zle'); process.exit(1); }
+        if (app.uiLang !== 'en') { console.error('changing lang overwrote uiLang - wrong'); process.exit(1); }
 
         const withVars = app.t('drop.max', {mb: 25, n: 10});
-        if (!withVars.includes('25') || !withVars.includes('10')) { console.error('interpolacja zła: ' + withVars); process.exit(1); }
-        if (app.t('nie.ma.takiego.klucza') !== 'nie.ma.takiego.klucza') { console.error('fallback klucza zły'); process.exit(1); }
+        if (!withVars.includes('25') || !withVars.includes('10')) { console.error('interpolation wrong: ' + withVars); process.exit(1); }
+        if (app.t('nie.ma.takiego.klucza') !== 'nie.ma.takiego.klucza') { console.error('key fallback wrong'); process.exit(1); }
 
-        // syncDocLang aktualizuje <title> i lang dokumentu
+        // syncDocLang updates <title> and the document lang attribute
         app.uiLang = 'en';
         app.syncDocLang('en');
-        if (globalThis.document.documentElement.lang !== 'en') { console.error('html lang niezmieniony'); process.exit(1); }
-        if (!globalThis.document.title.includes('AI document summaries')) { console.error('title niezmieniony: ' + globalThis.document.title); process.exit(1); }
+        if (globalThis.document.documentElement.lang !== 'en') { console.error('html lang unchanged'); process.exit(1); }
+        if (!globalThis.document.title.includes('AI document summaries')) { console.error('title unchanged: ' + globalThis.document.title); process.exit(1); }
 
-        // kroki "jak to działa" po angielsku
+        // "how it works" steps in English
         const steps = app.howSteps;
-        if (steps.length !== 3 || steps[0].t !== 'Upload files') { console.error('howSteps złe: ' + JSON.stringify(steps)); process.exit(1); }
+        if (steps.length !== 3 || steps[0].t !== 'Upload files') { console.error('howSteps wrong: ' + JSON.stringify(steps)); process.exit(1); }
 
-        // TYTUL wpisu historii ("W skrócie") w jezyku globalnym (uiLang), w obie strony
+        // HISTORY ENTRY TITLE ("W skrócie") in the global language (uiLang), both directions
         if (app.historyTitle('## W skrócie\\nabc') !== 'In brief') { console.error('historyTitle en: ' + app.historyTitle('## W skrócie')); process.exit(1); }
-        if (app.historyTitle('## Wnioski\\nabc') !== 'Conclusions') { console.error('historyTitle wnioski en zly'); process.exit(1); }
-        if (app.historyTitle('## In brief\\nabc') !== 'In brief') { console.error('historyTitle en en zly'); process.exit(1); }
-        if (app.historyTitle('## Mój raport Q4') !== 'Mój raport Q4') { console.error('historyTitle passthrough zly'); process.exit(1); }
+        if (app.historyTitle('## Wnioski\\nabc') !== 'Conclusions') { console.error('historyTitle conclusions en wrong'); process.exit(1); }
+        if (app.historyTitle('## In brief\\nabc') !== 'In brief') { console.error('historyTitle en en wrong'); process.exit(1); }
+        if (app.historyTitle('## Mój raport Q4') !== 'Mój raport Q4') { console.error('historyTitle passthrough wrong'); process.exit(1); }
         app.uiLang = 'pl';
         if (app.historyTitle('## In brief\\nabc') !== 'W skrócie') { console.error('historyTitle pl: ' + app.historyTitle('## In brief')); process.exit(1); }
-        if (app.historyTitle('(bez nagłówka)') !== '(bez nagłówka)') { console.error('historyTitle pusty zly'); process.exit(1); }
+        if (app.historyTitle('(bez nagłówka)') !== '(bez nagłówka)') { console.error('historyTitle empty wrong'); process.exit(1); }
         app.uiLang = 'en';
 
-        // window.summaryApp jest ustawione - tak Alpine znajduje komponent
-        if (typeof globalThis.window.summaryApp !== 'function') { console.error('brak window.summaryApp'); process.exit(1); }
+        // window.summaryApp is set - that's how Alpine finds the component
+        if (typeof globalThis.window.summaryApp !== 'function') { console.error('window.summaryApp missing'); process.exit(1); }
 
         console.log('SUMMARY_APP_OK');
         """
@@ -146,7 +146,7 @@ def test_sse_parser_handles_split_chunks():
         const events = [];
         for await (const e of sseEvents(resp)) events.push(e);
         if (events.length !== 2 || events[1].data.summary !== 'OK') {
-          console.error('SSE zły: ' + JSON.stringify(events)); process.exit(1);
+          console.error('SSE wrong: ' + JSON.stringify(events)); process.exit(1);
         }
         console.log('SSE_OK');
         """

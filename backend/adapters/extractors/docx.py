@@ -1,4 +1,4 @@
-"""Ekstrakcja tekstu z DOCX (akapity + tabele)."""
+"""Extract text from DOCX (paragraphs + tables)."""
 
 from __future__ import annotations
 

@@ -1,6 +1,6 @@
-"""Rejestr ekstraktorów - dodanie obsługi formatu = jeden wpis w REGISTRY.
+"""Extractor registry - adding a format = one entry in REGISTRY.
 
-Żeby dodać nowy format:
+To add a new format:
     from backend.adapters.extractors import register
     register(".odt", "ODT", my_extractor)
 """
@@ -17,13 +17,13 @@ Extractor = Callable[[bytes], str]
 
 REGISTRY: dict[str, tuple[str, Extractor]] = {}
 
-# aliasy kompatybilności (aktualizowane przy każdym register)
+# compatibility aliases (refreshed on every register)
 FORMATS: dict[str, str] = {}
 ACCEPT: str = ""
 
 
 def register(extension: str, label: str, extractor: Extractor) -> None:
-    """Rejestruje format pliku (extension musi zaczynać się od kropki)."""
+    """Register a file format (extension must start with a dot)."""
     ext = extension.lower()
     if not ext.startswith("."):
         raise ValueError(f"Rozszerzenie musi zaczynać się od kropki: {extension!r}")
@@ -34,7 +34,7 @@ def register(extension: str, label: str, extractor: Extractor) -> None:
 
 
 def format_of(file_name: str) -> str | None:
-    """Zwraca czytelną nazwę formatu albo None, gdy format nieobsługiwany."""
+    """Return the human-readable format label, or None when unsupported."""
     dot = file_name.rfind(".")
     if dot == -1:
         return None
@@ -46,12 +46,12 @@ def extensions() -> list[str]:
 
 
 def labels() -> list[str]:
-    """Posortowane, unikalne nazwy formatów (np. dla /api/health)."""
+    """Sorted, unique format labels (e.g. for /api/health)."""
     return sorted({label for label, _ in REGISTRY.values()})
 
 
 def extract_text(file_name: str, data: bytes) -> tuple[str, str]:
-    """Zwraca (format, tekst). Gdy format nieobsługiwany - ExtractionError."""
+    """Return ``(format, text)``. Raises ExtractionError for unsupported formats."""
     dot = file_name.rfind(".")
     entry = REGISTRY.get(file_name[dot:].lower()) if dot != -1 else None
     if entry is None:
@@ -65,7 +65,7 @@ def extract_text(file_name: str, data: bytes) -> tuple[str, str]:
     return label, text
 
 
-# --- formaty domyślne ---------------------------------------------------------
+# --- default formats ---------------------------------------------------------
 register(".pdf", "PDF", pdf.extract)
 register(".docx", "DOCX", docx.extract)
 register(".txt", "TXT", plain.extract)

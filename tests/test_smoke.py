@@ -1,4 +1,4 @@
-"""Testy smoke - podstawowe endpointy muszą działać."""
+"""Smoke tests - basic endpoints must work."""
 
 
 def test_health(client):

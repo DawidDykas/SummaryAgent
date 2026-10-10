@@ -1,15 +1,15 @@
-"""Hierarchia wyjątków domenowych.
+"""Domain exception hierarchy.
 
-W warstwie API (backend/api) są one tłumaczone na odpowiedzi HTTP
-przez exception handlery zarejestrowane w main.py - logika biznesowa
-nie importuje FastAPI.
+In the API layer (backend/api) these are translated into HTTP responses by
+exception handlers registered in main.py - the business logic never imports
+FastAPI.
 """
 
 from __future__ import annotations
 
 
 class SummaryAgentError(Exception):
-    """Baza wszystkich błędów domenowych."""
+    """Base class for all domain errors."""
 
     status_code: int = 500
     code: str = "internal_error"
@@ -37,14 +37,14 @@ class DocumentNotFoundError(SummaryAgentError):
 
 
 class ExtractionError(SummaryAgentError):
-    """Błąd odczytu pliku (obsługiwany per-plik przy uploadzie)."""
+    """File read error (handled per file during upload)."""
 
     status_code = 422
     code = "extraction_failed"
 
 
 class LLMError(SummaryAgentError):
-    """Błąd komunikacji z modelem / API."""
+    """Model / API communication error."""
 
     status_code = 502
     code = "llm_error"

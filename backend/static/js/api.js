@@ -1,4 +1,4 @@
-/** Klient API - wszystkie wywołania HTTP w jednym miejscu. */
+/** API client - all HTTP calls in one place. */
 
 export async function fetchHealth() {
   const resp = await fetch('/api/health');
@@ -37,7 +37,7 @@ export async function deleteDocument(id) {
   try {
     await fetch(`/api/documents/${id}`, { method: 'DELETE' });
   } catch (_) {
-    /* serwer niedostępny - dokument i tak znika z UI */
+    /* server unavailable - the document disappears from the UI anyway */
   }
 }
 
@@ -55,7 +55,7 @@ export async function fetchSummaryStream(ids, lang, length, uiLang) {
     try {
       detail = (await resp.json()).detail || detail;
     } catch (_) {
-      /* odpowiedź nie jest JSONem */
+      /* response is not JSON */
     }
     throw new Error(detail);
   }

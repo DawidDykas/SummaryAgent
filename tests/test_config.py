@@ -1,4 +1,4 @@
-"""Testy konfiguracji - walidacja i przełączanie providerów."""
+"""Tests for configuration - validation and provider switching."""
 
 import pytest
 from pydantic import ValidationError
@@ -33,7 +33,7 @@ def test_env_vars_are_read(monkeypatch):
 @pytest.mark.parametrize(
     "kwargs",
     [
-        {"chunk_size": 50},  # za małe
+        {"chunk_size": 50},  # too small
         {"chunk_overlap": 500, "chunk_size": 400},  # overlap >= size
         {"summary_concurrency": 0},
         {"summary_concurrency": 9},

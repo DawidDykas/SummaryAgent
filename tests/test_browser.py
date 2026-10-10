@@ -1,10 +1,10 @@
-"""Testy E2E w prawdziwej przeglądarce (Playwright) - łapią błędy montowania UI.
+"""E2E tests in a real browser (Playwright) - catch UI mounting errors.
 
-Regresja dla buga: przeniesienie app.js na type="module" bez zmiany kolejności
-tagów <script> sprawiło, że Alpine startował PRZED ustawieniem window.summaryApp
-("Alpine Expression Error: summaryApp is not defined" -> całe UI martwe).
+Regression for a bug: moving app.js to type="module" without reordering the
+<script> tags made Alpine start BEFORE window.summaryApp was set
+("Alpine Expression Error: summaryApp is not defined" -> entire UI dead).
 
-Test pomijany, gdy playwright/chromium niedostępne (np. brak przeglądarki w CI).
+The test is skipped when playwright/chromium is unavailable (e.g. no browser in CI).
 """
 
 import asyncio
@@ -15,12 +15,12 @@ from pathlib import Path
 
 import pytest
 
-playwright_api = pytest.importorskip("playwright.async_api", reason="playwright niezainstalowany")
+playwright_api = pytest.importorskip("playwright.async_api", reason="playwright not installed")
 async_playwright = playwright_api.async_playwright
 
 
 def _chromium_available() -> bool:
-    """Chromium binarny dostępny? (w CI zwykle nie -> test pomijany zamiast faila)"""
+    """Is the Chromium binary available? (usually not in CI -> skip instead of fail)"""
     try:
         from playwright.sync_api import sync_playwright
 
@@ -30,7 +30,7 @@ def _chromium_available() -> bool:
         return False
 
 
-pytestmark = pytest.mark.skipif(not _chromium_available(), reason="chromium niezainstalowany")
+pytestmark = pytest.mark.skipif(not _chromium_available(), reason="chromium not installed")
 
 
 def _free_port() -> int:
@@ -41,7 +41,7 @@ def _free_port() -> int:
 
 @pytest.fixture(scope="module")
 def live_server():
-    """Uruchamia uvicorn na wolnym porcie w wątku (prawdziwy serwer dla przeglądarki)."""
+    """Run uvicorn on a free port in a thread (real server for the browser)."""
     port = _free_port()
     config = None
     server = None
@@ -69,7 +69,7 @@ def live_server():
         except OSError:
             time.sleep(0.2)
     else:
-        pytest.fail("serwer nie wystartował")
+        pytest.fail("server did not start")
     yield f"http://127.0.0.1:{port}"
     server.should_exit = True
     t.join(timeout=10)
@@ -103,7 +103,7 @@ async def _browser_test(base: str) -> dict:
             }"""
         )
 
-        # 1) klik w dropzone -> dialog systemowy -> wybór 2 plików
+        # 1) click the dropzone -> system dialog -> pick 2 files
         tmp = Path("/tmp") / "e2e_upload.txt"
         tmp.write_text("Dokument testowy do przeslania przez UI. " * 3)
         tmp2 = Path("/tmp") / "e2e_drop.txt"
@@ -121,7 +121,7 @@ async def _browser_test(base: str) -> dict:
             }"""
         )
 
-        # 2) drag & drop na dropzone
+        # 2) drag & drop onto the dropzone
         await page.evaluate(
             """() => {
                 const f = new File(['drop content'], 'e2e_dnd.txt', {type: 'text/plain'});
@@ -142,7 +142,7 @@ async def _browser_test(base: str) -> dict:
             }"""
         )
 
-        # 3) globalny język interfejsu w headerze - zmienia STRONĘ, nie język podsumowania
+        # 3) global UI language in the header - changes the PAGE, not the summary language
         await page.locator("#lang-switcher").click()
         await page.wait_for_timeout(300)
         await page.get_by_role("button", name="English").click()
@@ -159,13 +159,13 @@ async def _browser_test(base: str) -> dict:
                         title: document.title, htmlLang: document.documentElement.lang,
                         navText: nav ? nav.textContent.trim() : null,
                         dropTranslated: body.includes('Drop files here') && !body.includes('Przeciągnij pliki tutaj'),
-                        // etykiety mają CSS uppercase -> porównujemy bez wielkości liter
+                        // labels use CSS uppercase -> compare case-insensitively
                         settingsLabel: body.toLowerCase().includes('language') && !body.toLowerCase().includes('język'),
                         resultTitle: d.t('result.title')};
             }"""
         )
 
-        # 4) select nad Summary = JĘZYK PODSUMOWANIA - osobny stan, nie rusza interfejsu
+        # 4) select above Summary = SUMMARY LANGUAGE - separate state, does not touch the UI
         await page.select_option('select[x-model="lang"]', "en")
         await page.wait_for_timeout(300)
         after_select = await page.evaluate(
@@ -178,7 +178,7 @@ async def _browser_test(base: str) -> dict:
             }"""
         )
 
-        # 5) powrot headera na PL - strona wraca, język podsumowania ZOSTAJE en
+        # 5) header back to PL - the page returns, the summary language STAYS en
         await page.locator("#lang-switcher").click()
         await page.wait_for_timeout(300)
         await page.get_by_role("button", name="Polski").click()
@@ -217,16 +217,16 @@ async def _browser_test(base: str) -> dict:
 
 
 def test_ui_mounts_without_js_errors(live_server):
-    """Alpine musi zamontować summaryApp bez ReferenceError i pozwalać na upload."""
+    """Alpine must mount summaryApp without ReferenceError and allow uploads."""
     report = asyncio.run(_browser_test(live_server))
 
-    assert report["page_errors"] == [], f"bledy strony: {report['page_errors']}"
-    assert report["console_errors"] == [], f"konsola: {report['console_errors']}"
+    assert report["page_errors"] == [], f"page errors: {report['page_errors']}"
+    assert report["console_errors"] == [], f"console: {report['console_errors']}"
 
     st = report["state"]
-    assert st.get("mounted") is not None, "Alpine nie zamontowal x-data"
-    assert st["mounted"], "x-data nie zainicjalizowane (summaryApp niedostepne dla Alpine?)"
-    assert st["hasSummaryApp"], "window.summaryApp nie ustawione"
+    assert st.get("mounted") is not None, "Alpine did not mount x-data"
+    assert st["mounted"], "x-data not initialised (summaryApp unavailable to Alpine?)"
+    assert st["hasSummaryApp"], "window.summaryApp not set"
     assert st["busy"] is False and st["lang"] == "pl"
 
     up = report["after_click"]
@@ -237,23 +237,23 @@ def test_ui_mounts_without_js_errors(live_server):
 
     ui = report["after_lang"]
     assert ui["uiLang"] == "en", ui
-    assert ui["open"] is False, f"dropdown nie zamknął się: {ui}"
-    # NIEZALEŻNOŚĆ: header nie rusza języka podsumowania
-    assert ui["lang"] == "pl" and ui["select"] == "pl", f"header zmienił lang: {ui}"
+    assert ui["open"] is False, f"dropdown did not close: {ui}"
+    # INDEPENDENCE: the header does not touch the summary language
+    assert ui["lang"] == "pl" and ui["select"] == "pl", f"header changed lang: {ui}"
     assert ui["htmlLang"] == "en" and "AI document summaries" in ui["title"], ui
     assert ui["navText"] == "Upload files", ui
-    assert ui["dropTranslated"], f"dropzone nietłumaczony: {ui}"
-    assert ui["settingsLabel"], f"etykiety ustawień nietłumaczone: {ui}"
+    assert ui["dropTranslated"], f"dropzone not translated: {ui}"
+    assert ui["settingsLabel"], f"settings labels not translated: {ui}"
     assert ui["resultTitle"] == "Summary", ui
 
     sel = report["after_select"]
     assert sel["lang"] == "en" and sel["select"] == "en", sel
-    assert sel["uiLang"] == "en" and sel["pageStillEn"], f"select naruszył interfejs: {sel}"
+    assert sel["uiLang"] == "en" and sel["pageStillEn"], f"select broke the UI: {sel}"
 
     back = report["after_back"]
     assert back["uiLang"] == "pl" and back["lang"] == "en" and back["select"] == "en", back
     assert back["navText"] == "Wgraj pliki", back
-    assert back["pageBackPl"], f"strona nie wróciła na PL: {back}"
-    assert back["summaryLangLabel"], f"brak etykiety języka podsumowania: {back}"
+    assert back["pageBackPl"], f"page did not return to PL: {back}"
+    assert back["summaryLangLabel"], f"summary language label missing: {back}"
 
     assert report["button"]["visible"] and report["button"]["enabled"]

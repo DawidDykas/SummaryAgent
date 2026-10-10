@@ -1,4 +1,4 @@
-"""Ekstrakcja tekstu z plików tekstowych (TXT, MD) - bez dodatkowej konwersji."""
+"""Extract text from plain-text files (TXT, MD) - no conversion needed."""
 
 from __future__ import annotations
 

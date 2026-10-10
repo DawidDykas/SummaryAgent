@@ -1,4 +1,4 @@
-/** Historia podsumowań w localStorage (max 8 wpisów). */
+/** Summary history in localStorage (max 8 entries). */
 
 const STORE_KEY = 'summaryagent.history';
 
@@ -16,12 +16,12 @@ export function saveStoredHistory(item) {
   try {
     localStorage.setItem(STORE_KEY, JSON.stringify(history));
   } catch (_) {
-    /* brak miejsca - skracamy i próbujemy ponownie */
+    /* out of space - trim and try again */
     history = history.slice(0, 4);
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify(history));
     } catch (_) {
-      /* dalej brak - zostawiamy tylko w pamięci */
+      /* still no space - keep history in memory only */
     }
   }
   return history;

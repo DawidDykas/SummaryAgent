@@ -1,4 +1,4 @@
-"""Ustawienia aplikacji ładowane z .env / zmiennych środowiskowych."""
+"""Application settings loaded from .env / environment variables."""
 
 from functools import lru_cache
 
@@ -9,16 +9,16 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    # --- Zewnetrzne API (zgodne z OpenAI) ---------------------------------
+    # --- External API (OpenAI-compatible) ---------------------------------
     llm_api_url: str = ""
     llm_api_key: str = ""
     llm_model: str = "gpt-4o-mini"
 
-    # --- Ollama (uzywana, gdy llm_api_url jest puste) ---------------------
+    # --- Ollama (used when llm_api_url is empty) --------------------------
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.2"
 
-    # --- Przetwarzanie -----------------------------------------------------
+    # --- Processing -------------------------------------------------------
     chunk_size: int = Field(default=12000, ge=100, le=1_000_000)
     chunk_overlap: int = Field(default=400, ge=0)
     max_file_size_mb: int = Field(default=25, ge=1, le=1024)
@@ -27,12 +27,12 @@ class Settings(BaseSettings):
     request_timeout: float = Field(default=300.0, gt=0)
     summary_temperature: float = Field(default=0.3, ge=0.0, le=2.0)
     max_retries: int = Field(default=2, ge=0, le=10)
-    # ile części dużego dokumentu analizować równolegle
+    # how many chunks of a large document to analyze in parallel
     summary_concurrency: int = Field(default=2, ge=1, le=8)
 
-    # --- Logowanie -----------------------------------------------------------
+    # --- Logging ----------------------------------------------------------
     log_level: str = "INFO"
-    log_json: bool = False  # True = JSON (prod), False = czytelna konsola (dev)
+    log_json: bool = False  # True = JSON (prod), False = readable console (dev)
 
     @model_validator(mode="after")
     def _check_overlap(self) -> "Settings":

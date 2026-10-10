@@ -1,7 +1,7 @@
-/** Słowniki interfejsu (PL/EN) + prosta interpolacja {zmienna}.
+/** Interface dictionaries (PL/EN) + simple {variable} interpolation.
 
  * Klucz = identyfikator w HTML (x-text="t('klucz')") i w app.js.
- * brakujący klucz -> zwraca sam klucz (widoczny sygnał do uzupełnienia).
+ * missing key -> returns the key itself (visible signal to fill it in).
  */
 
 const DICT = {
@@ -158,7 +158,7 @@ export function tr(lang, key, vars) {
   return text;
 }
 
-/** Znane nagłówki sekcji streszczenia -> odpowiednik w języku UI (historia). */
+/** Known summary section headings -> UI-language equivalent (history titles). */
 const HEADING_CANON = {
   'w skrócie': { pl: 'W skrócie', en: 'In brief' },
   'kluczowe punkty': { pl: 'Kluczowe punkty', en: 'Key points' },
@@ -176,7 +176,7 @@ const HEADING_CANON = {
   conclusion: { pl: 'Wnioski', en: 'Conclusions' },
 };
 
-/** Pierwsza linia streszczenia przetłumaczona na język UI (dla historii). */
+/** First line of the summary translated to the UI language (for history). */
 export function heading(lang, line) {
   const canon = HEADING_CANON[String(line || '').trim().toLowerCase()];
   if (!canon) return line;

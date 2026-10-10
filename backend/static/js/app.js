@@ -1,4 +1,4 @@
-/** Główny komponent Alpine - skleja API, SSE, historię i UI. */
+/** Main Alpine component - glues API, SSE, history and UI together. */
 
 import { deleteDocument, fetchHealth, fetchOllamaStatus, fetchSummaryStream, uploadDocuments } from './api.js';
 import { clearStoredHistory, loadStoredHistory, saveStoredHistory } from './history.js';
@@ -14,8 +14,8 @@ export function summaryApp() {
     expanded: null,
     busy: false,
     dragging: false,
-    lang: 'pl',        // język PODSUMOWANIA (select nad przyciskiem Summary)
-    uiLang: 'pl',       // globalny język INTERFEJSU (przełącznik w headerze)
+    lang: 'pl',        // SUMMARY language (select above the Summary button)
+    uiLang: 'pl',       // global UI language (header switcher)
     langOpen: false,
     langs: [
       { code: 'pl', name: 'Polski', flag: '🇵🇱' },
@@ -48,7 +48,7 @@ export function summaryApp() {
       try {
         this.health = await fetchHealth();
       } catch (_) {
-        /* serwer niedostępny */
+        /* server unavailable */
       }
       if (this.health?.provider === 'ollama') {
         try {
@@ -175,7 +175,7 @@ export function summaryApp() {
       await deleteDocument(id);
     },
 
-    // ---------- oś kroków (Thinking) ----------
+    // ---------- steps timeline (Thinking) ----------
     _step(key, text, state) {
       const i = this.steps.findIndex((s) => s.key === key);
       if (i >= 0) {
@@ -333,5 +333,5 @@ export function summaryApp() {
   };
 }
 
-/* Alpine szuka summaryApp() w globalnym scopie - moduł ES tego nie robi sam. */
+/* Alpine looks up summaryApp() in the global scope - an ES module cannot do that alone. */
 window.summaryApp = summaryApp;

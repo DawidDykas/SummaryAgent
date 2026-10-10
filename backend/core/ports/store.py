@@ -1,9 +1,10 @@
-"""Port (interfejs) magazynu dokumentów.
+"""Port (interface) for the document store.
 
-Realizacja: `backend/adapters/store/memory.py` (in-memory z TTL),
-dobierana przez fabrykę `backend.adapters.store.create_store()`.
+Implementation: `backend/adapters/store/memory.py` (in-memory with TTL),
+selected by the factory `backend.adapters.store.create_store()`.
 
-Uwaga: ciała metod to świadomie puste `...` - to *kontrakt*, nie brak kodu.
+Note: method bodies are intentionally empty `...` - these are *contracts*,
+not missing code.
 """
 
 from __future__ import annotations
@@ -15,20 +16,20 @@ from backend.core.models import StoredDocument
 
 @runtime_checkable
 class DocumentStore(Protocol):
-    """Magazyn dokumentów przesłanych przez użytkownika."""
+    """Store for documents uploaded by the user."""
 
     def put(self, name: str, fmt: str, text: str, chunks: int) -> StoredDocument:
-        """Zapisuje dokument i zwraca go z nadanym id."""
+        """Persist the document and return it with an assigned id."""
         ...
 
     def get(self, doc_id: str) -> StoredDocument | None:
-        """Pobiera dokument po id; None = nie istnieje (lub wygasł TTL)."""
+        """Fetch a document by id; None if it does not exist (or TTL expired)."""
         ...
 
     def delete(self, doc_id: str) -> bool:
-        """Usuwa dokument; True = istniał."""
+        """Delete a document; True if it existed."""
         ...
 
     def cleanup(self) -> None:
-        """Usuwa dokumenty, których TTL minął."""
+        """Remove documents whose TTL has expired."""
         ...

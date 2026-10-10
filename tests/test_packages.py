@@ -1,4 +1,4 @@
-"""Testy spójności pakietów: re-eksporty i granice warstw."""
+"""Tests for package consistency: re-exports and layer boundaries."""
 
 import importlib
 import pkgutil
@@ -31,7 +31,7 @@ def test_core_services_reexport_services():
 
 
 def test_schemas_live_in_api_layer():
-    """Modele odpowiedzi HTTP należą do warstwy API, nie core."""
+    """HTTP response models belong to the API layer, not the core."""
     from backend.api import schemas
 
     for name in ("DocumentInfo", "UploadError", "UploadResponse", "HealthResponse", "OllamaStatus"):
@@ -40,7 +40,7 @@ def test_schemas_live_in_api_layer():
 
 
 def test_core_modules_do_not_import_fastapi():
-    """Logika domenowa musi pozostać niezależna od FastAPI/Starlette."""
+    """Domain logic must stay independent of FastAPI/Starlette."""
     for mod in _iter_modules("backend.core"):
         importlib.import_module(mod)
 
@@ -57,6 +57,6 @@ def test_core_modules_do_not_import_fastapi():
 
 
 def test_all_backend_modules_import_cleanly():
-    """Każdy moduł w paczce backend da się zaimportować (brak cykli importów)."""
+    """Every module in the backend package can be imported (no import cycles)."""
     for name in _iter_modules("backend"):
         importlib.import_module(name)

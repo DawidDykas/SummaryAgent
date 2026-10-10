@@ -1,4 +1,4 @@
-"""Wspólne fixture'y - client uruchamia lifespan aplikacji (składniki DI)."""
+"""Shared fixtures - the client runs the app lifespan (DI components)."""
 
 import pytest
 from fastapi.testclient import TestClient

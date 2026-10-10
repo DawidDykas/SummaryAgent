@@ -1,4 +1,4 @@
-"""Testy serwisów domenowych (bez HTTP)."""
+"""Tests for domain services (without HTTP)."""
 
 import pytest
 
@@ -46,7 +46,7 @@ def make_summary_service(
     settings: Settings | None = None,
     texts: tuple[str, ...] = ("Zawartość dokumentu.",),
 ) -> tuple[SummaryService, list]:
-    """Serwis z dokumentami wpiętymi w magazyn (zwraca te, które są w magazynie)."""
+    """Service with documents pre-registered in the store (returns those that exist)."""
     store = InMemoryDocumentStore()
     docs = [store.put(f"dok{i}.txt", "TXT", text, chunks=1) for i, text in enumerate(texts)]
     service = SummaryService(
@@ -245,7 +245,7 @@ async def test_events_multiple_documents_are_combined():
 
 
 async def test_status_messages_follow_lang():
-    """Komunikaty strumienia muszą być w języku wybranym w zapytaniu."""
+    """Stream messages must be in the language chosen in the request."""
     client = FakeLLM(reply="WYNIK")
     service_pl, docs = make_summary_service(client=client, texts=("treść A",))
     msgs_pl = [

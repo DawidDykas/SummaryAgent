@@ -1,4 +1,4 @@
-"""Konfiguracja logowania (structlog) - wywoływana raz przy starcie aplikacji."""
+"""Logging setup (structlog) - called once at application startup."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from backend.core.config import Settings
 
 
 def setup_logging(settings: Settings) -> None:
-    """Konfiguruje structlog: JSON w produkcji, czytelna konsola w dev."""
+    """Configure structlog: JSON in production, readable console in dev."""
     shared: list = [
         structlog.contextvars.merge_contextvars,
         structlog.processors.add_log_level,
@@ -22,8 +22,8 @@ def setup_logging(settings: Settings) -> None:
         structlog.processors.JSONRenderer() if settings.log_json else structlog.dev.ConsoleRenderer()
     )
 
-    # force=True czyści handler roota (uwaga: logi uvicorn mają własne
-    # handlery na loggerach "uvicorn.*", więc nie tracimy ich formatowania)
+    # force=True clears the root handler (note: uvicorn logs use their own
+    # handlers on "uvicorn.*" loggers, so their formatting is preserved)
     logging.basicConfig(level=settings.log_level, format="%(message)s", force=True)
 
     structlog.configure(

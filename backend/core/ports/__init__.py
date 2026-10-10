@@ -1,13 +1,15 @@
-"""Kontrakty (interfejsy) między jądrem a infrastrukturą.
+"""Contracts (interfaces) between the core and the infrastructure.
 
-Metody portów mają świadomie puste ciała (`...`) - to *deklaracje kontraktu*,
-a nie niedokończone implementacje. Realne kodowanie siedzi w `backend/adapters/*`:
+Port methods have intentionally empty bodies (`...`) - these are *contract
+declarations*, not unfinished implementations. Real code lives in
+`backend/adapters/*`:
 
 - LLMClient      -> backend/adapters/llm/   (OpenAI-compat, Ollama)
-- DocumentStore  -> backend/adapters/store/ (in-memory; docelowo Redis/DB)
-- TextExtractor  -> backend/adapters/extractors/ (rejestr: PDF, DOCX, ...)
+- DocumentStore  -> backend/adapters/store/ (in-memory; Redis/DB later)
+- TextExtractor  -> backend/adapters/extractors/ (registry: PDF, DOCX, ...)
 
-Dzięki temu core zależy od *interfejsu*, a zmiana implementacji nie dotyka logiki.
+This way the core depends on the *interface* and swapping implementations
+never touches the business logic.
 """
 
 from backend.core.ports.extractor import TextExtractor

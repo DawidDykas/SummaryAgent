@@ -1,9 +1,9 @@
-"""Serwisy domenowe (orchestration) - testowalne bez HTTP.
+"""Domain services (orchestration) - testable without HTTP.
 
-- DocumentService - upload: walidacja -> ekstrakcja -> chunking -> magazyn
-- SummaryService  - map-reduce dla dużych plików + strumień zdarzeń status/done/error
+- DocumentService - upload: validation -> extraction -> chunking -> store
+- SummaryService  - map-reduce for large files + status/done/error event stream
 
-Routery FastAPI tylko przepinają te serwisy do endpointów (thin controllers).
+FastAPI routers only wire these services to endpoints (thin controllers).
 """
 
 from backend.core.services.documents import DocumentService, FileResult

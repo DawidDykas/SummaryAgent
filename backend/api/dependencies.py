@@ -1,4 +1,4 @@
-"""Wstrzykiwanie zależności (FastAPI Depends) - zamiast globalnych singletonów."""
+"""Dependency injection (FastAPI Depends) - instead of global singletons."""
 
 from __future__ import annotations
 
@@ -22,12 +22,12 @@ __all__ = [
 
 
 def get_store(request: Request) -> DocumentStore:
-    """Magazyn dokumentów utworzony w lifespanie aplikacji."""
+    """Document store created in the application lifespan."""
     return request.app.state.store
 
 
 def get_llm_client(request: Request) -> LLMClient:
-    """Klient LLM utworzony w lifespanie aplikacji (zamykany przy shutdown)."""
+    """LLM client created in the application lifespan (closed at shutdown)."""
     return request.app.state.llm_client
 
 

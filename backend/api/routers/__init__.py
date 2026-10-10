@@ -1,1 +1,1 @@
-"""Routery HTTP (dokumenty, strumień podsumowania, status Ollamy)."""
+"""HTTP routers (documents, summary stream, Ollama status)."""

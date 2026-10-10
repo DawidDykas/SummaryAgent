@@ -1,4 +1,4 @@
-"""Fabryka klienta LLM - jeden punkt wyboru providera (OpenAI-compat / Ollama)."""
+"""LLM client factory - single place to pick the provider (OpenAI-compat / Ollama)."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ def create_llm_client(
     settings: Settings,
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> LLMClient:
-    """Zwraca klienta z polityką ponowień dla aktywnego providera."""
+    """Return a client with retry policy for the active provider."""
     if settings.provider == "external":
         inner: LLMClient = OpenAICompatClient(settings, transport=transport)
     else:

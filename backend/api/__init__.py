@@ -1,5 +1,6 @@
-"""Warstwa transportowa (FastAPI): routery, schematy odpowiedzi, DI, middleware.
+"""Transport layer (FastAPI): routers, response schemas, DI, middleware.
 
-Wszystko, co dotyczy HTTP - endpointy (`routers/`), modele odpowiedzi (`schemas.py`),
-wstrzykiwanie zależności (`dependencies.py`), X-Request-ID i logi (`middleware.py`).
+Everything HTTP-related - endpoints (`routers/`), response models (`schemas.py`),
+dependency injection (`dependencies.py`), X-Request-ID and request logs
+(`middleware.py`).
 """

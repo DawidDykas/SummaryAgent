@@ -1,4 +1,4 @@
-"""Magazyn dokumentów w pamięci procesu (z TTL) - domyślna implementacja portu."""
+"""In-process document store (with TTL) - default port implementation."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Middleware ASGI: X-Request-ID + kontekst logowania + log żądań."""
+"""ASGI middleware: X-Request-ID + logging context + request logging."""
 
 from __future__ import annotations
 
@@ -12,9 +12,10 @@ REQUEST_ID_HEADER = b"x-request-id"
 
 
 class RequestContextMiddleware:
-    """Nadaje/pieczętuje request ID, loguje każde żądanie HTTP.
+    """Stamp a request ID, log every HTTP request.
 
-    Wchłania X-Request-ID z żądania (korelacja z bramkami) albo generuje nowy.
+    Consumes X-Request-ID from the request (gateway correlation) or generates
+    a new one.
     """
 
     def __init__(self, app: Any) -> None:

@@ -1,4 +1,4 @@
-"""Testy dzielenia dużych tekstów na części (map-reduce)."""
+"""Tests for splitting large texts into chunks (map-reduce)."""
 
 import pytest
 
@@ -19,21 +19,21 @@ def test_zero_size_rejected():
 
 
 def test_long_text_is_split_into_valid_chunks():
-    text = ("Zdanie numer jeden. " * 50 + "\n\n") * 10  # ~6000 znaków
+    text = ("Zdanie numer jeden. " * 50 + "\n\n") * 10  # ~6000 chars
     chunks = split_text(text, size=1000, overlap=100)
 
     assert len(chunks) > 1
     assert all(0 < len(c) <= 1000 for c in chunks)
-    # każda część jest "czysta" (bez zbędnych spacji na końcach)
+    # every chunk is "clean" (no extra whitespace at the edges)
     assert all(c == c.strip() for c in chunks)
 
 
 def test_overlap_is_respected():
-    text = "abcdefghij" * 300  # 3000 znaków bez naturalnych separatorów
+    text = "abcdefghij" * 300  # 3000 chars without natural separators
     chunks = split_text(text, size=500, overlap=100)
 
     for prev, nxt in zip(chunks, chunks[1:], strict=False):
-        # początek kolejnej części powinien pokrywać się z końcem poprzedniej
+        # the start of the next chunk should overlap with the end of the previous one
         assert prev[-50:] in nxt or prev[-20:] in nxt
 
 
@@ -41,7 +41,7 @@ def test_all_content_is_preserved():
     text = "".join(f"slowo{i} " for i in range(2000))
     chunks = split_text(text, size=700, overlap=50)
     joined = "".join(chunks)
-    # chunks są stripowane, ale każde słowo musi przetrwać
+    # chunks are stripped, but every word must survive
     for word in ("slowo0", "slowo500", "slowo1999"):
         assert word in joined
 
@@ -52,8 +52,8 @@ def test_prefers_breaking_at_paragraph():
     text = f"{part_a}\n\n{part_b}"
     chunks = split_text(text, size=700, overlap=0)
 
-    # pierwsza część kończy się na granicy akapitu (700 > 600, więc
-    # podział nastąpi przy \n\n, a nie w środku ciągu A)
+    # the first chunk ends at the paragraph boundary (700 > 600, so the
+    # cut happens at \n\n, not in the middle of the A run)
     assert chunks[0] == part_a
     assert chunks[1] == part_b
 

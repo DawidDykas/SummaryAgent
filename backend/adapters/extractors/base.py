@@ -1,4 +1,4 @@
-"""Wspólne narzędzia ekstraktorów: dekodowanie bajtów i czyszczenie tekstu."""
+"""Shared extractor helpers: byte decoding and text cleanup."""
 
 from __future__ import annotations
 

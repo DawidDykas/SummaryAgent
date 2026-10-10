@@ -1,4 +1,4 @@
-"""Obsługa uploadu dokumentów: walidacja, ekstrakcja, chunking, magazyn."""
+"""Document upload handling: validation, extraction, chunking, store."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from backend.core.ports.store import DocumentStore
 
 @dataclass(frozen=True)
 class FileResult:
-    """Wynik przetworzenia pojedynczego pliku (document XOR error)."""
+    """Result of processing a single file (document XOR error)."""
 
     name: str
     document: StoredDocument | None = None
@@ -34,7 +34,7 @@ class DocumentService:
     extract: TextExtractor
 
     async def upload(self, items: Sequence[tuple[str, bytes]]) -> list[FileResult]:
-        """Przetwarza pliki (nazwa, bajty) - każdy niezależnie (błąd jednego nie blokuje reszty)."""
+        """Process files (name, bytes) - each independently (one failure does not block the rest)."""
         if len(items) > self.settings.max_files:
             raise BadRequestError(
                 f"Za dużo plików naraz - maksymalnie {self.settings.max_files}."
@@ -42,14 +42,14 @@ class DocumentService:
         results: list[FileResult] = []
         for name, data in items:
             try:
-                # ekstrakcja jest CPU-bound -> w wątku, żeby nie blokować event loopa
+                # extraction is CPU-bound -> run in a thread to keep the event loop free
                 doc = await asyncio.to_thread(self._register, name, data)
                 results.append(FileResult(name=name, document=doc))
             except BadRequestError as exc:
                 results.append(FileResult(name=name, error=exc.message))
             except ExtractionError as exc:
                 results.append(FileResult(name=name, error=exc.message))
-            except Exception:  # nieprzewidziane błędy odczytu nie ujawniają szczegółów
+            except Exception:  # unexpected read errors must not leak details
                 results.append(FileResult(name=name, error="Nie udało się odczytać pliku."))
         return results
 

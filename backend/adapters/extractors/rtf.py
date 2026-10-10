@@ -1,4 +1,4 @@
-"""Ekstrakcja tekstu z RTF."""
+"""Extract text from RTF."""
 
 from __future__ import annotations
 

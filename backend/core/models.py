@@ -1,4 +1,4 @@
-"""Modele domenowe (entytty warstwy core, niezależne od FastAPI)."""
+"""Domain models (core-layer entities, independent of FastAPI)."""
 
 from __future__ import annotations
 

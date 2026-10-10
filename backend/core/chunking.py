@@ -1,5 +1,13 @@
 def _best_cut(window: str) -> int:
-    """Zwraca indeks najlepszego miejsca do podziału wewnątrz okna."""
+    """Return the index of the best place to cut inside the window.
+
+    Args:
+        window: Text slice to search for a separator.
+
+    Returns:
+        Index just after the last separator found in the second half of the
+        window, or ``len(window)`` when no suitable separator exists.
+    """
     for sep in ("\n\n", "\n", ". ", " ", "; "):
         pos = window.rfind(sep)
         if pos > len(window) // 2:
@@ -8,10 +16,22 @@ def _best_cut(window: str) -> int:
 
 
 def split_text(text: str, size: int, overlap: int = 0) -> list[str]:
-    """Dzieli tekst na części <= size znaków z nakładaniem się (overlap).
+    """Split text into chunks of at most ``size`` characters with overlap.
 
-    Duże pliki trafiają do modelu porcjami - dzięki temu nie przekraczamy
-    limitu kontekstu i dostajemy kompletne podsumowanie.
+    Large files are fed to the model in portions - this keeps every prompt
+    within the context limit while still covering the whole document.
+
+    Args:
+        text: Source text to split (stripped first).
+        size: Maximum chunk length in characters; must be > 0.
+        overlap: Characters shared between neighbouring chunks; clamped
+            to at most ``size // 2``.
+
+    Returns:
+        Chunks in original order; empty list for empty input.
+
+    Raises:
+        ValueError: If ``size`` is not positive.
     """
     text = text.strip()
     if size <= 0:

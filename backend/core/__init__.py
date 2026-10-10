@@ -1,12 +1,12 @@
-"""Jądro aplikacji - logika domenowa niezależna od FastAPI i infrastruktury.
+"""Application core - domain logic independent of FastAPI and infrastructure.
 
-Podmoduły:
-- config        - Settings (.env) z walidacją
-- exceptions    - hierarchia błędów domenowych
-- logging       - konfiguracja structlog
-- models        - modele danych (np. StoredDocument)
-- chunking      - dzielenie dużych tekstów na części
-- prompts       - prompty dla LLM
-- ports/        - kontrakty (Protocol) na implementacje z adapters/
+Submodules:
+- config        - Settings (.env) with validation
+- exceptions    - domain error hierarchy
+- logging       - structlog configuration
+- models        - data models (e.g. StoredDocument)
+- chunking      - splitting large texts into chunks
+- prompts       - prompts for the LLM
+- ports/        - contracts (Protocol) implemented by adapters/
 - services/     - orchestration (DocumentService, SummaryService)
 """
