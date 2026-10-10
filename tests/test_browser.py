@@ -142,7 +142,7 @@ async def _browser_test(base: str) -> dict:
             }"""
         )
 
-        # 3) wybór języka z flagą w headerze (dropdown) + sync z selectem z lewej
+        # 3) globalny język interfejsu w headerze - zmienia STRONĘ, nie język podsumowania
         await page.locator("#lang-switcher").click()
         await page.wait_for_timeout(300)
         await page.get_by_role("button", name="English").click()
@@ -154,7 +154,7 @@ async def _browser_test(base: str) -> dict:
                 const sel = document.querySelector('select[x-model="lang"]');
                 const body = document.body.innerText;
                 const nav = document.querySelector('a[href="#dropzone"]');
-                return {lang: d.lang, flag: d.langFlag, open: d.langOpen,
+                return {uiLang: d.uiLang, lang: d.lang, open: d.langOpen,
                         select: sel ? sel.value : null,
                         title: document.title, htmlLang: document.documentElement.lang,
                         navText: nav ? nav.textContent.trim() : null,
@@ -162,6 +162,37 @@ async def _browser_test(base: str) -> dict:
                         // etykiety mają CSS uppercase -> porównujemy bez wielkości liter
                         settingsLabel: body.toLowerCase().includes('language') && !body.toLowerCase().includes('język'),
                         resultTitle: d.t('result.title')};
+            }"""
+        )
+
+        # 4) select nad Summary = JĘZYK PODSUMOWANIA - osobny stan, nie rusza interfejsu
+        await page.select_option('select[x-model="lang"]', "en")
+        await page.wait_for_timeout(300)
+        after_select = await page.evaluate(
+            """() => {
+                const d = document.querySelector('[x-data]')._x_dataStack[0];
+                const sel = document.querySelector('select[x-model="lang"]');
+                const body = document.body.innerText;
+                return {lang: d.lang, uiLang: d.uiLang, select: sel.value,
+                        pageStillEn: body.includes('Drop files here')};
+            }"""
+        )
+
+        # 5) powrot headera na PL - strona wraca, język podsumowania ZOSTAJE en
+        await page.locator("#lang-switcher").click()
+        await page.wait_for_timeout(300)
+        await page.get_by_role("button", name="Polski").click()
+        await page.wait_for_timeout(400)
+        after_back = await page.evaluate(
+            """() => {
+                const d = document.querySelector('[x-data]')._x_dataStack[0];
+                const sel = document.querySelector('select[x-model="lang"]');
+                const body = document.body.innerText;
+                const nav = document.querySelector('a[href="#dropzone"]');
+                return {uiLang: d.uiLang, lang: d.lang, select: sel.value,
+                        navText: nav ? nav.textContent.trim() : null,
+                        pageBackPl: body.includes('Przeciągnij pliki tutaj') && !body.includes('Drop files here'),
+                        summaryLangLabel: body.toLowerCase().includes('język podsumowania')};
             }"""
         )
 
@@ -177,6 +208,8 @@ async def _browser_test(base: str) -> dict:
         "after_click": after_click,
         "after_drop": after_drop,
         "after_lang": after_lang,
+        "after_select": after_select,
+        "after_back": after_back,
         "button": {"visible": btn_visible, "enabled": btn_enabled},
         "page_errors": page_errors,
         "console_errors": console_errors,
@@ -202,15 +235,25 @@ def test_ui_mounts_without_js_errors(live_server):
     dnd = report["after_drop"]
     assert dnd["docs"] == 2 and "e2e_dnd.txt" in dnd["names"], dnd
 
-    lang = report["after_lang"]
-    assert lang["lang"] == "en" and lang["flag"] == "🇬🇧", lang
-    assert lang["open"] is False, f"dropdown nie zamknął się: {lang}"
-    assert lang["select"] == "en", f"select z lewej nie zsynchronizowany: {lang}"
-    # tłumaczenie interfejsu po wybraniu języka
-    assert lang["htmlLang"] == "en" and "AI document summaries" in lang["title"], lang
-    assert lang["navText"] == "Upload files", lang
-    assert lang["dropTranslated"], f"dropzone nietłumaczony: {lang}"
-    assert lang["settingsLabel"], f"etykiety ustawień nietłumaczone: {lang}"
-    assert lang["resultTitle"] == "Summary", lang
+    ui = report["after_lang"]
+    assert ui["uiLang"] == "en", ui
+    assert ui["open"] is False, f"dropdown nie zamknął się: {ui}"
+    # NIEZALEŻNOŚĆ: header nie rusza języka podsumowania
+    assert ui["lang"] == "pl" and ui["select"] == "pl", f"header zmienił lang: {ui}"
+    assert ui["htmlLang"] == "en" and "AI document summaries" in ui["title"], ui
+    assert ui["navText"] == "Upload files", ui
+    assert ui["dropTranslated"], f"dropzone nietłumaczony: {ui}"
+    assert ui["settingsLabel"], f"etykiety ustawień nietłumaczone: {ui}"
+    assert ui["resultTitle"] == "Summary", ui
+
+    sel = report["after_select"]
+    assert sel["lang"] == "en" and sel["select"] == "en", sel
+    assert sel["uiLang"] == "en" and sel["pageStillEn"], f"select naruszył interfejs: {sel}"
+
+    back = report["after_back"]
+    assert back["uiLang"] == "pl" and back["lang"] == "en" and back["select"] == "en", back
+    assert back["navText"] == "Wgraj pliki", back
+    assert back["pageBackPl"], f"strona nie wróciła na PL: {back}"
+    assert back["summaryLangLabel"], f"brak etykiety języka podsumowania: {back}"
 
     assert report["button"]["visible"] and report["button"]["enabled"]

@@ -1,14 +1,14 @@
-LANG_NAMES = {"pl": "polskim", "en": "angielskim"}
+LANG_NAMES = {"pl": "Polish", "en": "English"}
 
 LENGTH_SPECS = {
-    "short": "ok. 120 słów",
-    "standard": "ok. 300 słów",
-    "long": "ok. 600 słów",
-    "xl": "ok. 1200 słów",
+    "short": "about 120 words",
+    "standard": "about 300 words",
+    "long": "about 600 words",
+    "xl": "about 1200 words",
 }
 DEFAULT_LENGTH = "standard"
 
-# limity tokenów na odpowiedź zależne od wybranej objętości
+# per-length response token budget
 FINAL_MAX_TOKENS = {
     "short": 900,
     "standard": 1500,
@@ -29,7 +29,16 @@ def _language_name(lang: str) -> str:
     return LANG_NAMES.get(lang, LANG_NAMES["pl"])
 
 
-def _structure() -> str:
+def _structure(lang: str = "pl") -> str:
+    """Section headings in the summary language (not the interface language)."""
+    if lang == "en":
+        return (
+            "Response structure:\n"
+            "## In brief\n(3 sentences)\n\n"
+            "## Key points\n(bullet list)\n\n"
+            "## Key details\n(facts, numbers, dates, names)\n\n"
+            "## Conclusions\n"
+        )
     return (
         "Struktura odpowiedzi:\n"
         "## W skrócie\n(3 zdania)\n\n"
@@ -41,20 +50,20 @@ def _structure() -> str:
 
 def _system(lang: str) -> str:
     return (
-        f"Jesteś doświadczonym analitykiem dokumentów. Odpowiadasz wyłącznie w języku {_language_name(lang)}. "
-        "Piszesz rzeczowo, konkretnie, bez lania wody. Formatujesz odpowiedź w Markdownie."
+        f"You are an experienced document analyst. Reply exclusively in { _language_name(lang) }. "
+        "Write factually and concretely, without fluff. Format the reply in Markdown."
     )
 
 
 def chunk_prompt(name: str, index: int, total: int, text: str) -> list[dict]:
     system = (
-        "Działasz jako analityk dokumentów. Wyciągasz z fragmentu WSZYSTKO istotne: "
-        "fakty, liczby, nazwy, terminy, argumenty i wnioski. "
-        "Odpowiadasz zwięźle, bez wstępów i grzecznościowych formułek."
+        "You act as a document analyst. Extract EVERYTHING essential from the fragment: "
+        "facts, numbers, names, dates, arguments and conclusions. "
+        "Reply concisely, without introductions or polite formulas."
     )
     user = (
-        f"To fragment {index}/{total} dokumentu \"{name}\".\n"
-        f"Wypisz kluczowe informacje z tego fragmentu w formie zwięzłej listy.\n\n"
+        f"This is fragment {index}/{total} of the document \"{name}\".\n"
+        f"List the key information from this fragment as a concise bullet list.\n\n"
         f"--- FRAGMENT {index}/{total} ---\n{text}"
     )
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
@@ -69,26 +78,26 @@ def final_prompt(
     multi: bool,
 ) -> list[dict]:
     header = (
-        f"Przygotuj kompletne podsumowanie dokumentu \"{name}\""
-        + (" (połączony z kilku plików)." if multi else ".")
+        f"Prepare a complete summary of the document \"{name}\""
+        + (" (combined from multiple files)." if multi else ".")
     )
     user = (
         f"{header}\n"
-        f"Długość: {length_spec(length)}.\n{_structure()}\n"
-        f"Materiał źródłowy:\n---\n{source}\n---"
+        f"Length: {length_spec(length)}.\n{_structure(lang)}\n"
+        f"Source material:\n---\n{source}\n---"
     )
     return [{"role": "system", "content": _system(lang)}, {"role": "user", "content": user}]
 
 
 def combine_prompt(name: str, partials: list[str], *, lang: str, length: str) -> list[dict]:
     joined = "\n\n".join(
-        f"### Część {i}/{len(partials)}\n{p}" for i, p in enumerate(partials, start=1)
+        f"### Part {i}/{len(partials)}\n{p}" for i, p in enumerate(partials, start=1)
     )
     user = (
-        f"Poniżej streszczenia poszczególnych części dokumentu \"{name}\". "
-        f"Połącz je w jedno, spójne podsumowanie całego dokumentu.\n"
-        f"Długość: {length_spec(length)}.\n\n"
-        f"{_structure()}\n"
+        f"Below are summaries of the individual parts of the document \"{name}\". "
+        f"Combine them into one coherent summary of the whole document.\n"
+        f"Length: {length_spec(length)}.\n\n"
+        f"{_structure(lang)}\n"
         f"---\n{joined}\n---"
     )
     return [{"role": "system", "content": _system(lang)}, {"role": "user", "content": user}]

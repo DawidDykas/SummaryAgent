@@ -1,4 +1,4 @@
-"""Testy promptów - struktura wiadomości dla LLM."""
+"""Prompt tests - message structure sent to the LLM."""
 
 import pytest
 
@@ -53,23 +53,23 @@ def test_final_prompt_structure():
     )
 
     assert messages[0]["role"] == "system"
-    assert "polskim" in messages[0]["content"]
+    assert "Polish" in messages[0]["content"]
     user = messages[1]["content"]
     assert "raport.pdf" in user
     assert LENGTH_SPECS["standard"] in user
     assert "## W skrócie" in user
     assert "MATERIAŁ" in user
-    assert "połączony z kilku plików" not in user
+    assert "combined from multiple files" not in user
 
 
 def test_final_prompt_multi_flag():
     messages = final_prompt("a.txt", "X", lang="pl", length="short", multi=True)
-    assert "połączony z kilku plików" in messages[1]["content"]
+    assert "combined from multiple files" in messages[1]["content"]
 
 
 def test_final_prompt_language():
     messages = final_prompt("a.txt", "X", lang="en", length="xl", multi=False)
-    assert "angielskim" in messages[0]["content"]
+    assert "English" in messages[0]["content"]
 
 
 def test_combine_prompt_joins_partials():
@@ -78,8 +78,8 @@ def test_combine_prompt_joins_partials():
     )
 
     user = messages[1]["content"]
-    assert "### Część 1/2" in user
+    assert "### Part 1/2" in user
     assert "część pierwsza" in user
-    assert "### Część 2/2" in user
+    assert "### Part 2/2" in user
     assert "część druga" in user
-    assert "spójne podsumowanie" in user
+    assert "coherent summary" in user

@@ -11,7 +11,7 @@ const DICT = {
       'Wgraj pliki (PDF, DOCX, TXT, MD, HTML, RTF) i otrzymaj ich podsumowanie od modelu LLM.',
     tagline: 'dokumenty → podsumowanie AI',
     'nav.upload': 'Wgraj pliki',
-    'lang.title': 'Język i interfejs: {name}',
+    'lang.title': 'Język interfejsu: {name}',
     'hero.title':
       'Wrzuć pliki. Kliknij <span class="grad-text">Summary</span>.<br class="hidden sm:block"> Odbierz gotowe streszczenie.',
     'drop.title': 'Przeciągnij pliki tutaj',
@@ -25,7 +25,7 @@ const DICT = {
     'doc.split': 'podzielony',
     'a11y.preview': 'Podgląd',
     'a11y.remove': 'Usuń',
-    'settings.lang': 'Język',
+    'settings.summaryLang': 'Język podsumowania',
     'settings.length': 'Objętość',
     'length.short': 'Zwięzłe (~120 słów)',
     'length.standard': 'Standard (~300 słów)',
@@ -80,7 +80,7 @@ const DICT = {
       'Upload files (PDF, DOCX, TXT, MD, HTML, RTF) and get their summary from an LLM.',
     tagline: 'documents → AI summary',
     'nav.upload': 'Upload files',
-    'lang.title': 'Language & UI: {name}',
+    'lang.title': 'UI language: {name}',
     'hero.title':
       'Drop files. Click <span class="grad-text">Summary</span>.<br class="hidden sm:block"> Get your summary.',
     'drop.title': 'Drop files here',
@@ -94,7 +94,7 @@ const DICT = {
     'doc.split': 'split',
     'a11y.preview': 'Preview',
     'a11y.remove': 'Remove',
-    'settings.lang': 'Language',
+    'settings.summaryLang': 'Summary language',
     'settings.length': 'Length',
     'length.short': 'Short (~120 words)',
     'length.standard': 'Standard (~300 words)',
@@ -156,4 +156,29 @@ export function tr(lang, key, vars) {
     }
   }
   return text;
+}
+
+/** Znane nagłówki sekcji streszczenia -> odpowiednik w języku UI (historia). */
+const HEADING_CANON = {
+  'w skrócie': { pl: 'W skrócie', en: 'In brief' },
+  'kluczowe punkty': { pl: 'Kluczowe punkty', en: 'Key points' },
+  'najważniejsze szczegóły': { pl: 'Najważniejsze szczegóły', en: 'Key details' },
+  'wnioski': { pl: 'Wnioski', en: 'Conclusions' },
+  'in brief': { pl: 'W skrócie', en: 'In brief' },
+  'in short': { pl: 'W skrócie', en: 'In brief' },
+  summary: { pl: 'W skrócie', en: 'In brief' },
+  'key points': { pl: 'Kluczowe punkty', en: 'Key points' },
+  'key takeaways': { pl: 'Kluczowe punkty', en: 'Key points' },
+  'key details': { pl: 'Najważniejsze szczegóły', en: 'Key details' },
+  'important details': { pl: 'Najważniejsze szczegóły', en: 'Key details' },
+  'most important details': { pl: 'Najważniejsze szczegóły', en: 'Key details' },
+  conclusions: { pl: 'Wnioski', en: 'Conclusions' },
+  conclusion: { pl: 'Wnioski', en: 'Conclusions' },
+};
+
+/** Pierwsza linia streszczenia przetłumaczona na język UI (dla historii). */
+export function heading(lang, line) {
+  const canon = HEADING_CANON[String(line || '').trim().toLowerCase()];
+  if (!canon) return line;
+  return canon[lang] || canon.pl;
 }

@@ -67,7 +67,7 @@ def test_summary_app_initializes_and_helpers_work():
           'renderedSummary', 'statsLabel', 'providerLabel', 'totalChars', 'totalChunks',
           'badgeClass', 'shortFmt', 'fmtNum', 'partsWord', 'firstLine',
           'langFlag', 'langName', 'langOpen', 'langs',
-          't', 'howSteps', 'syncDocLang',
+          't', 'howSteps', 'syncDocLang', 'uiLang', 'historyTitle',
         ];
         const missing = required.filter((k) => !(k in app));
         if (missing.length) { console.error('BRAK KLUCZY: ' + missing.join(',')); process.exit(1); }
@@ -78,21 +78,30 @@ def test_summary_app_initializes_and_helpers_work():
         if (app.fmtNum(1234567).length < 5) { console.error('fmtNum zły'); process.exit(1); }
         if (app.partsWord(1) !== 'część' || app.partsWord(2) !== 'części') { console.error('partsWord zły'); process.exit(1); }
         if (app.firstLine('## Tytuł\\ntreść') !== 'Tytuł') { console.error('firstLine zły: ' + app.firstLine('## Tytuł')); process.exit(1); }
-        if (app.summary !== '' || app.busy !== false || app.lang !== 'pl') { console.error('stan domyślny zły'); process.exit(1); }
+        if (app.summary !== '' || app.busy !== false || app.lang !== 'pl' || app.uiLang !== 'pl') { console.error('stan domyślny zły'); process.exit(1); }
         if (app.langFlag !== '🇵🇱' || app.langName !== 'Polski') { console.error('flaga/język domyślny zły'); process.exit(1); }
-        app.lang = 'en';
-        if (app.langFlag !== '🇬🇧' || app.langName !== 'English') { console.error('przełączenie języka złe'); process.exit(1); }
+        // FLAGA w headerze sledzi uiLang (jezyk interfejsu), NIE lang (jezyk podsumowania)
+        app.uiLang = 'en';
+        if (app.langFlag !== '🇬🇧' || app.langName !== 'English') { console.error('flaga nie sledzi uiLang'); process.exit(1); }
+        app.uiLang = 'pl';
+        if (app.langFlag !== '🇵🇱' || app.langName !== 'Polski') { console.error('flaga nie wraca na pl'); process.exit(1); }
 
-        // i18n: ten sam klucz, dwa języki + interpolacja
-        if (app.t('nav.upload') !== 'Upload files') { console.error('i18n en: ' + app.t('nav.upload')); process.exit(1); }
-        app.lang = 'pl';
+        // t() sledzi uiLang...
         if (app.t('nav.upload') !== 'Wgraj pliki') { console.error('i18n pl: ' + app.t('nav.upload')); process.exit(1); }
+        app.uiLang = 'en';
+        if (app.t('nav.upload') !== 'Upload files') { console.error('i18n en: ' + app.t('nav.upload')); process.exit(1); }
+        // ...i jest NIEZALEZNE od jezyka podsumowania (lang)
+        app.lang = 'pl';
+        if (app.t('nav.upload') !== 'Upload files') { console.error('t() zalezne od lang - zle'); process.exit(1); }
+        app.lang = 'en';
+        if (app.uiLang !== 'en') { console.error('zmiana lang nadpisala uiLang - zle'); process.exit(1); }
+
         const withVars = app.t('drop.max', {mb: 25, n: 10});
         if (!withVars.includes('25') || !withVars.includes('10')) { console.error('interpolacja zła: ' + withVars); process.exit(1); }
         if (app.t('nie.ma.takiego.klucza') !== 'nie.ma.takiego.klucza') { console.error('fallback klucza zły'); process.exit(1); }
 
         // syncDocLang aktualizuje <title> i lang dokumentu
-        app.lang = 'en';
+        app.uiLang = 'en';
         app.syncDocLang('en');
         if (globalThis.document.documentElement.lang !== 'en') { console.error('html lang niezmieniony'); process.exit(1); }
         if (!globalThis.document.title.includes('AI document summaries')) { console.error('title niezmieniony: ' + globalThis.document.title); process.exit(1); }
@@ -100,6 +109,16 @@ def test_summary_app_initializes_and_helpers_work():
         // kroki "jak to działa" po angielsku
         const steps = app.howSteps;
         if (steps.length !== 3 || steps[0].t !== 'Upload files') { console.error('howSteps złe: ' + JSON.stringify(steps)); process.exit(1); }
+
+        // TYTUL wpisu historii ("W skrócie") w jezyku globalnym (uiLang), w obie strony
+        if (app.historyTitle('## W skrócie\\nabc') !== 'In brief') { console.error('historyTitle en: ' + app.historyTitle('## W skrócie')); process.exit(1); }
+        if (app.historyTitle('## Wnioski\\nabc') !== 'Conclusions') { console.error('historyTitle wnioski en zly'); process.exit(1); }
+        if (app.historyTitle('## In brief\\nabc') !== 'In brief') { console.error('historyTitle en en zly'); process.exit(1); }
+        if (app.historyTitle('## Mój raport Q4') !== 'Mój raport Q4') { console.error('historyTitle passthrough zly'); process.exit(1); }
+        app.uiLang = 'pl';
+        if (app.historyTitle('## In brief\\nabc') !== 'W skrócie') { console.error('historyTitle pl: ' + app.historyTitle('## In brief')); process.exit(1); }
+        if (app.historyTitle('(bez nagłówka)') !== '(bez nagłówka)') { console.error('historyTitle pusty zly'); process.exit(1); }
+        app.uiLang = 'en';
 
         // window.summaryApp jest ustawione - tak Alpine znajduje komponent
         if (typeof globalThis.window.summaryApp !== 'function') { console.error('brak window.summaryApp'); process.exit(1); }

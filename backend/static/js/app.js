@@ -2,7 +2,7 @@
 
 import { deleteDocument, fetchHealth, fetchOllamaStatus, fetchSummaryStream, uploadDocuments } from './api.js';
 import { clearStoredHistory, loadStoredHistory, saveStoredHistory } from './history.js';
-import { tr } from './i18n.js';
+import { heading, tr } from './i18n.js';
 import { sseEvents } from './sse.js';
 import { badgeClass, firstLine, fmtNum, partsWord, scrollToPanel, shortFmt } from './ui.js';
 
@@ -14,7 +14,8 @@ export function summaryApp() {
     expanded: null,
     busy: false,
     dragging: false,
-    lang: 'pl',
+    lang: 'pl',        // język PODSUMOWANIA (select nad przyciskiem Summary)
+    uiLang: 'pl',       // globalny język INTERFEJSU (przełącznik w headerze)
     langOpen: false,
     langs: [
       { code: 'pl', name: 'Polski', flag: '🇵🇱' },
@@ -84,7 +85,7 @@ export function summaryApp() {
     },
 
     get _currentLang() {
-      return this.langs.find((l) => l.code === this.lang) || this.langs[0];
+      return this.langs.find((l) => l.code === this.uiLang) || this.langs[0];
     },
 
     get langFlag() {
@@ -108,8 +109,8 @@ export function summaryApp() {
       const s = this.stats;
       return [
         s.model,
-        `${s.chunks} ${partsWord(s.chunks, this.lang)}`,
-        `${fmtNum(s.chars, this.lang)} ${this.t('stats.chars')}`,
+        `${s.chunks} ${partsWord(s.chunks, this.uiLang)}`,
+        `${fmtNum(s.chars, this.uiLang)} ${this.t('stats.chars')}`,
         `${s.duration_s}s`,
       ].join(' · ');
     },
@@ -121,7 +122,11 @@ export function summaryApp() {
     shortFmt,
 
     t(key, vars) {
-      return tr(this.lang, key, vars);
+      return tr(this.uiLang, key, vars);
+    },
+
+    historyTitle(summary) {
+      return heading(this.uiLang, firstLine(summary, this.uiLang));
     },
 
     syncDocLang(code) {
@@ -213,7 +218,7 @@ export function summaryApp() {
       const ids = this.docs.map((d) => d.id).join(',');
 
       try {
-        const resp = await fetchSummaryStream(ids, this.lang, this.length);
+        const resp = await fetchSummaryStream(ids, this.lang, this.length, this.uiLang);
         let finished = false;
         for await (const { event, data } of sseEvents(resp)) {
           if (event === 'status') {
@@ -299,7 +304,7 @@ export function summaryApp() {
       if (!this.summary || !this.stats) return;
       const item = {
         id: Date.now(),
-        date: new Date().toLocaleString(this.lang === 'en' ? 'en-US' : 'pl-PL', {
+        date: new Date().toLocaleString(this.uiLang === 'en' ? 'en-US' : 'pl-PL', {
           dateStyle: 'short',
           timeStyle: 'short',
         }),

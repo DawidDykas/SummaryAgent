@@ -41,13 +41,13 @@ export async function deleteDocument(id) {
   }
 }
 
-export function summaryStreamUrl(ids, lang, length) {
-  const params = new URLSearchParams({ doc_ids: ids, lang, length });
+export function summaryStreamUrl(ids, lang, length, uiLang) {
+  const params = new URLSearchParams({ doc_ids: ids, lang, length, ui_lang: uiLang });
   return `/api/summary/stream?${params}`;
 }
 
-export async function fetchSummaryStream(ids, lang, length) {
-  const resp = await fetch(summaryStreamUrl(ids, lang, length), {
+export async function fetchSummaryStream(ids, lang, length, uiLang) {
+  const resp = await fetch(summaryStreamUrl(ids, lang, length, uiLang), {
     headers: { Accept: 'text/event-stream' },
   });
   if (!resp.ok) {

@@ -95,12 +95,21 @@ class SummaryService:
         return docs
 
     async def events(
-        self, docs: Sequence[StoredDocument], lang: str, length: str
+        self,
+        docs: Sequence[StoredDocument],
+        lang: str,
+        length: str,
+        msg_lang: str | None = None,
     ) -> AsyncIterator[Event]:
-        """Generuje zdarzenia: status* -> done | error."""
+        """Generuje zdarzenia: status* -> done | error.
+
+        lang = język PODSUMOWANIA (prompt), msg_lang = język komunikatów UI
+        (domyślnie taki sam jak lang).
+        """
+        mlang = msg_lang or lang
         started = time.perf_counter()
         try:
-            yield "status", _status("prepare", _msg(lang, "prepare", n=len(docs)))
+            yield "status", _status("prepare", _msg(mlang, "prepare", n=len(docs)))
 
             sections = [f"== Plik: {d.name} ==\n{d.text}" for d in docs]
             text = "\n\n\n".join(sections).strip()
@@ -116,10 +125,10 @@ class SummaryService:
 
             if total > 1:
                 yield "status", _status(
-                    "chunk", _msg(lang, "chunk", total=total), total=total
+                    "chunk", _msg(mlang, "chunk", total=total), total=total
                 )
                 queue: asyncio.Queue = asyncio.Queue()
-                task = asyncio.create_task(self._analyze_chunks(chunks, name, queue, lang))
+                task = asyncio.create_task(self._analyze_chunks(chunks, name, queue, mlang))
                 while True:  # przekaż statusy części do momentu zakończenia
                     item = await queue.get()
                     if item is _SENTINEL:
@@ -131,14 +140,14 @@ class SummaryService:
 
                 yield "status", _status(
                     "synthesize",
-                    _msg(lang, "synthesize"),
+                    _msg(mlang, "synthesize"),
                     progress=total,
                     total=total,
                 )
                 messages = combine_prompt(name, partials, lang=lang, length=length)
             else:
                 yield "status", _status(
-                    "thinking", _msg(lang, "thinking"), progress=1, total=1
+                    "thinking", _msg(mlang, "thinking"), progress=1, total=1
                 )
                 messages = final_prompt(name, text, lang=lang, length=length, multi=multi)
 
@@ -161,7 +170,7 @@ class SummaryService:
         except LLMError as exc:
             yield "error", {"message": str(exc)}
         except Exception as exc:
-            yield "error", {"message": _msg(lang, "unexpected", error=exc)}
+            yield "error", {"message": _msg(mlang, "unexpected", error=exc)}
 
     async def _analyze_chunks(
         self,

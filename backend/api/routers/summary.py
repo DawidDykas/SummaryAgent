@@ -31,14 +31,15 @@ async def _event_stream(events: AsyncIterator[Event]) -> AsyncIterator[str]:
 @router.get("/summary/stream")
 async def summary_stream(
     doc_ids: str = Query(..., description="Lista id dokumentów po przecinku"),
-    lang: str = Query("pl", pattern="^(pl|en)$"),
+    lang: str = Query("pl", pattern="^(pl|en)$", description="język podsumowania"),
     length: str = Query("standard", pattern=LENGTH_PATTERN),
+    ui_lang: str | None = Query(None, pattern="^(pl|en)$", description="język komunikatów UI"),
     service: SummaryService = Depends(get_summary_service),
 ):
     # resolve rzuca wyjątki ZANIM wystartuje odpowiedź (poprawny kod HTTP)
     docs = service.resolve(doc_ids.split(","))
     return StreamingResponse(
-        _event_stream(service.events(docs, lang, length)),
+        _event_stream(service.events(docs, lang, length, msg_lang=ui_lang)),
         media_type="text/event-stream",
         headers=SSE_HEADERS,
     )
