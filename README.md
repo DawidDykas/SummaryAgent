@@ -1,33 +1,38 @@
 # SummaryAgent
 
-Wgraj pliki (PDF, DOCX, TXT, MD, HTML, RTF) → kliknij **Summary** → otrzymaj gotowe streszczenie.
+Drop files (PDF, DOCX, TXT, MD, HTML, RTF) → click **Summary** → get a clean Markdown digest.
 
-- za duże pliki są automatycznie **dzielone na części** i analizowane pojedynczo (map-reduce),
-- działa na **lokalnej Ollamie** albo na **dowolnym API zgodnym z OpenAI** —
-  jeśli pole `LLM_API_URL` w `.env` jest **puste**, aplikacja **sama przełącza się na Ollamę**,
-- frontend z animacją *Thinking*, paskiem postępu i wynikiem w Markdownie.
+- **Local LLM or any OpenAI-compatible API** — leave `LLM_API_URL` empty and the app automatically falls back to local Ollama; point it at OpenAI, Groq, OpenRouter, DeepSeek, … and it uses that instead.
+- **Large files are split automatically** (map-reduce): chunks are summarized in parallel and then combined into one coherent summary.
+- **Live progress over SSE** — animated *Thinking* state, a per-part progress bar and a step-by-step event log while the model works.
+- **Two independent languages** — the UI language (Polish/English, switcher in the header) is separate from the *summary language* (the select above the Summary button). Progress messages and history follow the interface; the digest itself — and its section headings — follow the summary language.
+- **Markdown output** with *Copy* / *Download .md*, length presets (short → extensive) and a recent-summaries history stored in your browser.
+
+| Upload | Generating | Result |
+|---|---|---|
+| ![Upload screen](images/01-upload.png) | ![Live progress](images/02-thinking.png) | ![Markdown summary](images/03-summary.png) |
 
 ---
 
-## Szybki start (Docker — zalecany)
+## Quick start (Docker — recommended)
 
 ```bash
-cp .env.example .env        # domyślnie LLM_API_URL puste => Ollama
+cp .env.example .env        # empty LLM_API_URL => Ollama is used
 docker compose up -d --build
 ```
 
-Przy pierwszym starcie komplet pobiera model `llama3.2` (~2 GB).
+On the very first start the `ollama` service pulls the default model (`llama3.2`, ~2 GB).
 
-Otwórz **http://localhost:8000**
+Open **http://localhost:8000**
 
-> **GPU:** Ollama startuje domyślnie z GPU (NVIDIA) — sekcja `deploy` w `docker-compose.yml`.
-> Bez karty NVIDIA usuń ten blok z pliku.
+> **GPU:** Ollama starts with NVIDIA GPU support by default (the `deploy` section in `docker-compose.yml`).
+> On a machine without an NVIDIA card, delete that block.
 
-> Chcesz tylko API (bez lokalnego modelu)? `docker compose up -d --build api --no-deps`
+> API only, no local model? `docker compose up -d --build api --no-deps`
 
-### Wyłączenie Ollamy, użycie własnego API
+### Use your own OpenAI-compatible API instead of Ollama
 
-W `.env` wpisz:
+Put this in `.env`:
 
 ```bash
 LLM_API_URL=https://api.openai.com/v1
@@ -35,42 +40,41 @@ LLM_API_KEY=sk-...
 LLM_MODEL=gpt-4o-mini
 ```
 
-i uruchom sam backend: `docker compose up -d --build api --no-deps`
+then run just the backend: `docker compose up -d --build api --no-deps`
 
 ---
 
-## Start bez Dockera
+## Run without Docker
 
 ```bash
 cp .env.example .env
-uv sync --all-groups       # zależności + narzędzia dev (pytest, ruff)
+uv sync --all-groups       # dependencies + dev tools (pytest, ruff)
 uv run uvicorn backend.api.main:app --reload --port 8000
 ```
 
-Ollama musi wtedy działać lokalnie (`ollama serve`) z portu `11434` —
-ustaw to w `.env` (`OLLAMA_BASE_URL`) oraz pobierz model: `ollama pull llama3.2`.
+Ollama must then run locally (`ollama serve`, port `11434`) — set `OLLAMA_BASE_URL` in `.env` and pull the model: `ollama pull llama3.2`.
 
-### Testy i lint
+### Tests & lint
 
 ```bash
-uv run pytest              # testy jednostkowe + integracyjne (bez sieci/LMM)
+uv run pytest              # 135 tests: unit, integration (fake LLM), Playwright E2E
 uv run ruff check backend tests
 ```
 
 ---
 
-## Obsługiwane formaty
+## Supported formats
 
-| Rozszerzenie | Format |
+| Extension | Format |
 |---|---|
-| `.pdf` | PDF (wymagana warstwa tekstowa — nie skan) |
-| `.docx` | Word (akapity + tabele) |
-| `.txt` | Tekst |
+| `.pdf` | PDF (must have a text layer — not a scan) |
+| `.docx` | Word (paragraphs + tables) |
+| `.txt` | plain text |
 | `.md`, `.markdown` | Markdown |
 | `.html`, `.htm` | HTML |
 | `.rtf` | RTF |
 
-Nowy format = jeden wpis w rejestrze (`backend/adapters/extractors`):
+Adding a format is one entry in the registry (`backend/adapters/extractors`):
 
 ```python
 from backend.adapters.extractors import register
@@ -81,98 +85,105 @@ register(".odt", "ODT", my_extractor)  # extractor: Callable[[bytes], str]
 
 ## API
 
-| Metoda | Endpoint | Opis |
+| Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/health` | aktywny provider (API / Ollama), model, formaty |
-| `POST` | `/api/documents` | upload plików (`multipart`, pole `files`) → ekstrakcja tekstu |
-| `DELETE` | `/api/documents/{id}` | usunięcie dokumentu |
-| `GET` | `/api/summary/stream` | strumień SSE: `status` → `done` / `error` |
-| `GET` | `/api/ollama/status` | czy Ollama odpowiada i czy model jest pobrany |
-| `GET` | `/docs` | dokumentacja Swagger |
+| `GET` | `/api/health` | active provider (API / Ollama), model, formats |
+| `POST` | `/api/documents` | upload files (`multipart`, field `files`) → text extraction |
+| `DELETE` | `/api/documents/{id}` | delete a document |
+| `GET` | `/api/summary/stream` | SSE stream: `status` → `done` / `error` |
+| `GET` | `/api/ollama/status` | is Ollama up and is the model pulled |
+| `GET` | `/docs` | Swagger documentation |
 
-Każda odpowiedź zawiera nagłówek `X-Request-ID` (propagowany z żądania lub
-generowany) — przydaje się do korelacji w logach.
+Every response carries an `X-Request-ID` header (echoed from the request or generated) — handy for log correlation.
 
-Przykładowe wywołanie strumienia:
+Example stream call:
 
 ```
-GET /api/summary/stream?doc_ids=abc123,def456&lang=pl&length=standard
+GET /api/summary/stream?doc_ids=abc123,def456&lang=pl&length=standard&ui_lang=en
 ```
 
-Parametr `length` (objętość podsumowania): `short` (~120 słów), `standard` (~300),
-`long` (~600), `xl` (~1200 słów). Duże pliki są dzielone na części i analizowane
-**równolegle** (domyślnie 2 naraz — patrz `SUMMARY_CONCURRENCY`).
+| Param | Meaning |
+|---|---|
+| `lang` | language of the **summary text** (and its section headings) |
+| `ui_lang` | language of **progress/status messages** in the stream |
+| `length` | `short` (~120 words), `standard` (~300), `long` (~600), `xl` (~1200) |
+
+Large documents are chunked and analyzed **in parallel** (default 2 at a time — see `SUMMARY_CONCURRENCY`).
 
 ---
 
-## Konfiguracja (`.env`)
+## Configuration (`.env`)
 
-| Zmienna | Domyślnie | Opis |
+| Variable | Default | Description |
 |---|---|---|
-| `LLM_API_URL` | *(puste)* | adres API zgodnego z OpenAI; **puste = Ollama** |
-| `LLM_API_KEY` | *(puste)* | klucz do API (jeśli wymagane) |
-| `LLM_MODEL` | `gpt-4o-mini` | model dla zewnętrznego API |
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | adres Ollamy (w compose: `http://ollama:11434`) |
-| `OLLAMA_MODEL` | `llama3.2` | model Ollamy |
-| `CHUNK_SIZE` | `12000` | ile znaków na część przy dzieleniu dużych plików |
-| `CHUNK_OVERLAP` | `400` | nakładanie się części |
-| `SUMMARY_CONCURRENCY` | `2` | ile części dużego dokumentu analizować równolegle (1–8) |
-| `MAX_FILE_SIZE_MB` | `25` | limit rozmiaru pliku |
-| `MAX_FILES` | `10` | limit plików na żądanie |
-| `DOC_TTL_SECONDS` | `3600` | jak długo dokumenty żyją w pamięci |
-| `LOG_LEVEL` | `INFO` | poziom logów (`DEBUG`…`CRITICAL`) |
-| `LOG_JSON` | `false` | `true` = logi w formacie JSON (produkcja) |
+| `LLM_API_URL` | *(empty)* | OpenAI-compatible API address; **empty = Ollama** |
+| `LLM_API_KEY` | *(empty)* | API key, if required |
+| `LLM_MODEL` | `gpt-4o-mini` | model for the external API |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama address (in compose: `http://ollama:11434`) |
+| `OLLAMA_MODEL` | `llama3.2` | Ollama model |
+| `CHUNK_SIZE` | `12000` | characters per chunk when splitting large files |
+| `CHUNK_OVERLAP` | `400` | overlap between chunks |
+| `SUMMARY_CONCURRENCY` | `2` | how many chunks of a large document to analyze at once (1–8) |
+| `MAX_FILE_SIZE_MB` | `25` | per-file size limit |
+| `MAX_FILES` | `10` | files per request |
+| `DOC_TTL_SECONDS` | `3600` | how long documents live in memory |
+| `LOG_LEVEL` | `INFO` | logging level (`DEBUG`…`CRITICAL`) |
+| `LOG_JSON` | `false` | `true` = JSON logs (production) |
 
-Wszystkie wartości są **walidowane przy starcie** (pydantic) — błąd w `.env`
-zatrzymuje aplikację z czytelnym komunikatem, zamiast działać nieprzewidywalnie.
+All values are **validated at startup** (pydantic) — a mistake in `.env` stops the app with a clear message instead of misbehaving later.
 
 ---
 
-## Struktura projektu
+## Project structure
 
-Architektura w stylu hexagonalnym: `core` (logika) nie importuje FastAPI,
-`adapters` (infrastruktura) realizuje porty z `core`, `api` tylko przepina.
+Hexagonal layout: `core` (logic) never imports FastAPI, `adapters` (infrastructure) implement the ports declared in `core`, `api` just wires things together.
 
 ```
 backend/
-  core/                  # logika domenowa - bez zależności od FastAPI
-    config.py            # Settings (.env) z walidacją
-    exceptions.py        # hierarchia błędów -> mapowana na HTTP w api/
-    logging.py           # konfiguracja structlog
+  core/                  # domain logic - no FastAPI dependency
+    config.py            # Settings (.env) with validation
+    exceptions.py        # error hierarchy -> mapped to HTTP in api/
+    logging.py           # structlog setup
     models.py            # StoredDocument
-    chunking.py          # dzielenie dużych tekstów
-    prompts.py           # prompty (części + finalne)
-    ports/               # kontrakty (Protocol)
+    chunking.py          # splitting large texts
+    prompts.py           # prompts (per-chunk, final, combine) in PL/EN
+    ports/               # contracts (Protocol)
       llm.py             #   LLMClient
       store.py           #   DocumentStore
       extractor.py       #   TextExtractor
-    services/            # orchestration (testowalne bez HTTP)
-      documents.py       #   upload: walidacja → ekstrakcja → chunking → store
-      summary.py         #   map-reduce + strumień zdarzeń status/done/error
-  adapters/              # implementacje portów
-    llm/                 # OpenAI-compat, Ollama + retry + fabryka
-    store/               # magazyn in-memory (+ fabryka pod kolejne)
-    extractors/          # rejestr formatów (PDF, DOCX, ...)
-  api/                   # warstwa transportowa (FastAPI)
-    main.py              # app + lifespan (zasoby) + exception handlery
-    dependencies.py      # wstrzykiwanie zależności (Depends)
-    middleware.py        # X-Request-ID + log żądań
-    schemas.py           # modele odpowiedzi API
+    services/            # orchestration (testable without HTTP)
+      documents.py       #   upload: validation → extraction → chunking → store
+      summary.py         #   map-reduce + event stream (status/done/error)
+  adapters/              # port implementations
+    llm/                 # OpenAI-compat, Ollama + retry + factory
+    store/               # in-memory store (+ factory for more)
+    extractors/          # format registry (PDF, DOCX, ...)
+  api/                   # transport layer (FastAPI)
+    main.py              # app + lifespan (resources) + exception handlers
+    dependencies.py      # dependency injection (Depends)
+    middleware.py        # X-Request-ID + request logging
+    schemas.py           # response models
     routers/             # documents, summary (SSE), ollama
   static/
     index.html           # UI (Tailwind + Alpine.js)
-    js/                  # moduły ES: app, api, sse, history, ui
-tests/                   # pytest: jednostkowe, integracyjne (fake LLM)
+    js/                  # ES modules: app, api, sse, history, ui, i18n
+tests/                   # pytest: unit, integration (fake LLM), browser E2E
 ```
 
-### Dodawanie nowego providera LLM
+### Adding a new LLM provider
 
-1. Nowy plik w `backend/adapters/llm/` z klasą realizującą `LLMClient`
+1. New file in `backend/adapters/llm/` with a class implementing `LLMClient`
    (`chat()` + `close()`).
-2. Fabryka `backend/adapters/llm/__init__.py` wybiera implementację na podstawie
-   `Settings` — żadna zmiana w routerach ani serwisach.
+2. The factory in `backend/adapters/llm/__init__.py` picks the implementation from
+   `Settings` — no changes in routers or services.
 
-### Dodawanie nowego magazynu (np. Redis)
+### Adding a new document store (e.g. Redis)
 
-1. Nowy plik w `backend/adapters/store/` realizujący `DocumentStore`.
-2. Fabryka `create_store()` w `backend/adapters/store/__init__.py`.
+1. New file in `backend/adapters/store/` implementing `DocumentStore`.
+2. Wire it in `create_store()` in `backend/adapters/store/__init__.py`.
+
+---
+
+## License
+
+See the repository for license details.
